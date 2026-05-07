@@ -28,15 +28,25 @@ export class IncidentService {
       subCounty: string;
       lat?: number;
       lng?: number;
+      alertMode?: string;
+      alertAt?: string;
+      notifierDetails?: Record<string, string>[];
       patientName?: string;
+      patientAge?: string;
+      patientGender?: string;
+      patientNhif?: string;
       patientContact?: string;
+      nextOfKin?: string;
+      massCasualty?: boolean;
+      massCasualtyCount?: number;
+      watcherComments?: string;
     }
   ) {
     const caseNumber = this.generateCaseNumber();
 
-    // Default status: If a watcher creates it, it's DRAFT. If dispatcher, maybe SUBMITTED.
-    // For simplicity, let's use SUBMITTED to bypass DRAFT for now, as it's ready for dispatch.
-    const initialStatus = IncidentStatus.SUBMITTED;
+    const initialStatus = user.role === Role.WATCHER
+      ? IncidentStatus.DRAFT
+      : IncidentStatus.SUBMITTED;
 
     const incident = await this.app.prisma.incident.create({
       data: {
@@ -47,12 +57,25 @@ export class IncidentService {
         subCounty: data.subCounty,
         lat: data.lat,
         lng: data.lng,
+        alertMode: data.alertMode,
+        alertAt: data.alertAt ? new Date(data.alertAt) : undefined,
+        notifierDetails: data.notifierDetails ?? undefined,
         patientName: data.patientName,
+        patientAge: data.patientAge,
+        patientGender: data.patientGender,
+        patientNhif: data.patientNhif,
         patientContact: data.patientContact,
+        nextOfKin: data.nextOfKin,
+        massCasualty: data.massCasualty ?? false,
+        massCasualtyCount: data.massCasualtyCount,
+        watcherComments: data.watcherComments,
         assignedAgencyId: user.agencyId,
         watcherId: user.userId,
       },
     });
+
+    // Broadcast to all dispatchers
+    this.app.io.to(`role:${Role.DISPATCHER}`).emit('incident:new', incident);
 
     return incident;
   }

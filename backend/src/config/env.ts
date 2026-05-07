@@ -45,6 +45,26 @@ const schema = {
       type: 'string',
       default: 'redis://localhost:6379',
     },
+    KIMII_BASE_URL: {
+      type: 'string',
+      default: 'https://gps.kimiitelematics.com',
+    },
+    KIMII_USERNAME: {
+      type: 'string',
+      default: '',
+    },
+    KIMII_PASSWORD: {
+      type: 'string',
+      default: '',
+    },
+    KIMII_PROJECT_ID: {
+      type: 'string',
+      default: '49',
+    },
+    KIMII_USER_ID: {
+      type: 'string',
+      default: '82629',
+    },
   },
 };
 
@@ -64,6 +84,11 @@ declare module 'fastify' {
       JWT_SECRET: string;
       JWT_EXPIRES_IN: string;
       REDIS_URL: string;
+      KIMII_BASE_URL: string;
+      KIMII_USERNAME: string;
+      KIMII_PASSWORD: string;
+      KIMII_PROJECT_ID: string;
+      KIMII_USER_ID: string;
     };
   }
 }

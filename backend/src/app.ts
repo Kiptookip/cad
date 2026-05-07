@@ -5,10 +5,16 @@ import { registerEnv } from './config/env.js';
 import prismaPlugin from './plugins/prisma.js';
 import jwtPlugin from './plugins/jwt.js';
 import redisPlugin from './plugins/redis.js';
+import socketPlugin from './plugins/socketio.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { incidentRoutes } from './modules/incidents/incident.routes.js';
 import { fleetRoutes } from './modules/fleet/fleet.routes.js';
 import { taskRoutes } from './modules/tasks/task.routes.js';
+import { dispatchRoutes } from './modules/dispatch/dispatch.routes.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
+import { partnerRoutes } from './modules/partner/partner.routes.js';
+import { TrackingService } from './modules/tracking/tracking.service.js';
+import { AppError } from './shared/errors/AppError.js';
 
 /**
  * Builds and returns the configured Fastify application instance.
@@ -33,6 +39,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ── Database & Cache ───────────────────────────────────────────────────────
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  await app.register(socketPlugin);
 
   // ── Security ──────────────────────────────────────────────────────────────
   await app.register(helmet, {
@@ -47,6 +54,29 @@ export async function buildApp(): Promise<FastifyInstance> {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
+  // ── Global error handler ──────────────────────────────────────────────────
+  app.setErrorHandler((error: unknown, _request, reply) => {
+    if (error instanceof AppError) {
+      return reply.status(error.statusCode).send({
+        ok: false,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof Error && 'statusCode' in error && (error as any).statusCode === 400) {
+      return reply.status(400).send({
+        ok: false,
+        message: error.message,
+      });
+    }
+
+    app.log.error(error);
+    return reply.status(500).send({
+      ok: false,
+      message: 'Internal server error',
+    });
+  });
+
   // ── Health check ──────────────────────────────────────────────────────────
   app.get('/', async (_request, reply) => {
     return reply.send({ ok: true, service: 'NMS-EOC API', version: '1.0.0' });
@@ -55,8 +85,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ── Routes ────────────────────────────────────────────────────────────────
   app.register(authRoutes, { prefix: '/auth' });
   app.register(incidentRoutes, { prefix: '/incidents' });
+  app.register(dispatchRoutes, { prefix: '/dispatch' });
   app.register(fleetRoutes, { prefix: '/fleet' });
   app.register(taskRoutes, { prefix: '/tasks' });
+  app.register(adminRoutes, { prefix: '/admin' });
+  app.register(partnerRoutes, { prefix: '/partner' });
+
+  // ── GPS Tracking Worker ───────────────────────────────────────────────────
+  const trackingService = new TrackingService(app);
+  app.addHook('onReady', async () => trackingService.start());
+  app.addHook('onClose', async () => trackingService.stop());
 
   return app;
 }

@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { TaskStatus, IncidentStatus, Role } from '../../shared/types/index.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors/AppError.js';
 
+
+
 export class TaskService {
   constructor(private app: FastifyInstance) {}
 
@@ -45,6 +47,13 @@ export class TaskService {
         data: { status: IncidentStatus.DISPATCHED },
       }),
     ]);
+
+    // Broadcast to the crew
+    this.app.io
+      .to(`user:${data.driverId}`)
+      .to(`user:${data.emtId}`)
+      .to(`user:${data.nurseId}`)
+      .emit('task:assigned', task);
 
     return task;
   }
@@ -114,6 +123,64 @@ export class TaskService {
       });
     }
 
+    // Broadcast update to the crew and dispatchers
+    this.app.io
+      .to(`user:${task.driverId}`)
+      .to(`user:${task.emtId}`)
+      .to(`user:${task.nurseId}`)
+      .to(`role:${Role.DISPATCHER}`)
+      .emit('task:updated', updatedTask);
+
     return updatedTask;
+  }
+
+  /**
+   * Returns the active (non-completed, non-cancelled) task for the current responder.
+   */
+  async getActiveTask(userId: string) {
+    const task = await this.app.prisma.task.findFirst({
+      where: {
+        OR: [{ driverId: userId }, { emtId: userId }, { nurseId: userId }],
+        status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+      },
+      include: {
+        incident: true,
+        vehicle: { select: { id: true, registrationNumber: true, imei: true } },
+        driver: { select: { id: true, name: true, phone: true } },
+        emt: { select: { id: true, name: true, phone: true } },
+        nurse: { select: { id: true, name: true, phone: true } },
+      },
+      orderBy: { receivedAt: 'desc' },
+    });
+
+    return task;
+  }
+
+  /**
+   * Logs patient vitals and pre-hospital management notes for a task.
+   */
+  async updatePatientData(
+    taskId: string,
+    userId: string,
+    data: { preHospitalManagement: string; dispatcherChallenges?: string }
+  ) {
+    const task = await this.app.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundError('Task');
+
+    const isCrew = [task.driverId, task.emtId, task.nurseId].includes(userId);
+    if (!isCrew) throw new ForbiddenError('You are not assigned to this task');
+
+    // Store clinical notes on the incident
+    const updatedIncident = await this.app.prisma.incident.update({
+      where: { id: task.incidentId },
+      data: {
+        preHospitalManagement: data.preHospitalManagement,
+        dispatcherChallenges: data.dispatcherChallenges,
+      },
+    });
+
+    this.app.io.to(`incident:${task.incidentId}`).emit('incident:update', updatedIncident);
+
+    return updatedIncident;
   }
 }

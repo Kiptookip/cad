@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { TaskService } from './task.service.js';
 import { requireRole } from '../../shared/guards/requireRole.js';
 import { TaskStatus, Role } from '../../shared/types/index.js';
+import { BadRequestError } from '../../shared/errors/AppError.js';
 
 export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const taskService = new TaskService(app);
@@ -29,6 +30,39 @@ export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         request.body
       );
       return reply.status(201).send({ ok: true, data: task });
+    }
+  );
+
+  /**
+   * GET /tasks/active
+   * Returns the current responder's active task (non-completed/cancelled).
+   */
+  app.get(
+    '/active',
+    { preValidation: [requireRole([Role.DRIVER, Role.EMT, Role.NURSE])] },
+    async (request, reply) => {
+      const task = await taskService.getActiveTask(request.user.userId);
+      return reply.send({ ok: true, data: task });
+    }
+  );
+
+  /**
+   * POST /tasks/:id/patient-data
+   * Crew logs patient vitals and pre-hospital management notes.
+   */
+  app.post<{ Params: { id: string }; Body: { preHospitalManagement: string; dispatcherChallenges?: string } }>(
+    '/:id/patient-data',
+    { preValidation: [requireRole([Role.DRIVER, Role.EMT, Role.NURSE])] },
+    async (request, reply) => {
+      const { preHospitalManagement, dispatcherChallenges } = request.body;
+      if (!preHospitalManagement) throw new BadRequestError('preHospitalManagement is required');
+
+      const result = await taskService.updatePatientData(
+        request.params.id,
+        request.user.userId,
+        { preHospitalManagement, dispatcherChallenges }
+      );
+      return reply.send({ ok: true, data: result });
     }
   );
 

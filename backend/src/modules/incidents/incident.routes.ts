@@ -1,35 +1,55 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { IncidentService } from './incident.service.js';
 import { requireRole } from '../../shared/guards/requireRole.js';
 import { IncidentStatus, Role } from '../../shared/types/index.js';
+import { BadRequestError } from '../../shared/errors/AppError.js';
+
+const createIncidentSchema = z.object({
+  chiefComplaint: z.string().min(3, 'Chief complaint is required'),
+  locationName: z.string().min(2, 'Location name is required'),
+  subCounty: z.string().min(2, 'Sub-county is required'),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  alertMode: z.string().optional(),
+  alertAt: z.string().optional(),
+  notifierDetails: z.array(z.record(z.string(), z.string())).optional(),
+  patientName: z.string().optional(),
+  patientAge: z.string().optional(),
+  patientGender: z.string().optional(),
+  patientNhif: z.string().optional(),
+  patientContact: z.string().optional(),
+  nextOfKin: z.string().optional(),
+  massCasualty: z.boolean().optional(),
+  massCasualtyCount: z.number().int().positive().optional(),
+  watcherComments: z.string().optional(),
+});
+
+const updateStatusSchema = z.object({
+  status: z.nativeEnum(IncidentStatus),
+  comments: z.string().optional(),
+});
 
 export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const incidentService = new IncidentService(app);
 
-  // Apply authentication to all routes in this plugin
   app.addHook('preValidation', app.authenticate);
 
   /**
    * POST /incidents
-   * Create a new incident
    */
-  app.post<{
-    Body: {
-      chiefComplaint: string;
-      locationName: string;
-      subCounty: string;
-      lat?: number;
-      lng?: number;
-      patientName?: string;
-      patientContact?: string;
-    };
-  }>(
+  app.post(
     '/',
     { preValidation: [requireRole([Role.WATCHER, Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
     async (request, reply) => {
+      const parsed = createIncidentSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0].message);
+      }
+
       const incident = await incidentService.createIncident(
         { userId: request.user.userId, agencyId: request.user.agencyId, role: request.user.role },
-        request.body
+        parsed.data
       );
       return reply.status(201).send({ ok: true, data: incident });
     }
@@ -37,21 +57,13 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
 
   /**
    * GET /incidents
-   * List incidents with pagination and filtering
    */
-  app.get<{
-    Querystring: {
-      status?: IncidentStatus;
-      page?: string;
-      limit?: string;
-    };
-  }>(
+  app.get<{ Querystring: { status?: IncidentStatus; page?: string; limit?: string } }>(
     '/',
-    // Most authenticated users can list incidents, maybe restrict to specific roles later
     async (request, reply) => {
       const page = request.query.page ? parseInt(request.query.page, 10) : 1;
       const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
-      
+
       const result = await incidentService.getIncidents({
         status: request.query.status,
         page,
@@ -63,11 +75,8 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
 
   /**
    * GET /incidents/:id
-   * Get single incident details
    */
-  app.get<{
-    Params: { id: string };
-  }>(
+  app.get<{ Params: { id: string } }>(
     '/:id',
     async (request, reply) => {
       const incident = await incidentService.getIncidentById(request.params.id);
@@ -77,23 +86,21 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
 
   /**
    * PATCH /incidents/:id/status
-   * Update incident status
    */
-  app.patch<{
-    Params: { id: string };
-    Body: {
-      status: IncidentStatus;
-      comments?: string;
-    };
-  }>(
+  app.patch<{ Params: { id: string } }>(
     '/:id/status',
     { preValidation: [requireRole([Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
     async (request, reply) => {
+      const parsed = updateStatusSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0].message);
+      }
+
       const updated = await incidentService.updateIncidentStatus(
         request.params.id,
         { userId: request.user.userId, role: request.user.role },
-        request.body.status,
-        request.body.comments
+        parsed.data.status,
+        parsed.data.comments
       );
       return reply.send({ ok: true, data: updated });
     }

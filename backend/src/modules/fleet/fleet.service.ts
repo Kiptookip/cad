@@ -14,7 +14,7 @@ export class FleetService {
     // We could add an in-memory cache here to avoid hitting DB every second
     const vehicle = await this.app.prisma.vehicle.findUnique({
       where: { imei },
-      select: { id: true, status: true, agencyId: true, registration: true },
+      select: { id: true, isActive: true, agencyId: true, registrationNumber: true },
     });
 
     if (!vehicle) {
@@ -27,9 +27,9 @@ export class FleetService {
       lng,
       timestamp: new Date().toISOString(),
       vehicleId: vehicle.id,
-      registration: vehicle.registration,
+      registration: vehicle.registrationNumber,
       agencyId: vehicle.agencyId,
-      status: vehicle.status, // e.g. ACTIVE, IN_MAINTENANCE
+      isActive: vehicle.isActive,
     };
 
     // Store in Redis with an expiry (e.g., 5 minutes). If vehicle goes offline, it drops off map.
