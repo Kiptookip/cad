@@ -102,6 +102,63 @@ async function main() {
     console.log(`✅ Facility: ${facility.name} (KEPH ${facility.kephLevel})`);
   }
 
+  // ── 4. Dummy Fleet & Crew (for local testing) ───────────────────────────────
+  const vehicle = await prisma.vehicle.upsert({
+    where: { id: 'vehicle-001' },
+    update: {},
+    create: {
+      id: 'vehicle-001',
+      registrationNumber: 'KCX 123A',
+      imei: 'NMS-AMB-001',
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+  console.log(`✅ Vehicle: ${vehicle.registrationNumber}`);
+
+  const driver = await prisma.user.upsert({
+    where: { id: 'driver-001' },
+    update: {},
+    create: {
+      id: 'driver-001',
+      email: 'driver1@nms.go.ke',
+      passwordHash,
+      name: 'John Driver',
+      role: Role.DRIVER,
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+
+  const emt = await prisma.user.upsert({
+    where: { id: 'emt-001' },
+    update: {},
+    create: {
+      id: 'emt-001',
+      email: 'emt1@nms.go.ke',
+      passwordHash,
+      name: 'Sarah EMT',
+      role: Role.EMT,
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+
+  const nurse = await prisma.user.upsert({
+    where: { id: 'nurse-001' },
+    update: {},
+    create: {
+      id: 'nurse-001',
+      email: 'nurse1@nms.go.ke',
+      passwordHash,
+      name: 'Mike Nurse',
+      role: Role.NURSE,
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+  console.log(`✅ Crew created: Driver, EMT, Nurse`);
+
   console.log('\n🎉 Seed complete!');
   console.log('─────────────────────────────────────');
   console.log('Super Admin credentials:');
