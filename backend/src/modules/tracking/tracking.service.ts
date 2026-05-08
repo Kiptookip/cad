@@ -130,12 +130,14 @@ export class TrackingService {
     const locations: VehicleLocation[] = await this.parseAndEnrichLocations(data.data);
 
     // Cache each vehicle and broadcast fleet positions
-    const pipeline = this.app.redis.pipeline();
-    for (const loc of locations) {
-      const key = `vehicle:${loc.imei}:location`;
-      pipeline.set(key, JSON.stringify(loc), 'EX', 300);
+    if (this.app.redis) {
+      const pipeline = this.app.redis.pipeline();
+      for (const loc of locations) {
+        const key = `vehicle:${loc.imei}:location`;
+        pipeline.set(key, JSON.stringify(loc), 'EX', 300);
+      }
+      await pipeline.exec();
     }
-    await pipeline.exec();
 
     // Broadcast throttled fleet positions to all dispatcher/watcher clients
     this.app.io.to(`role:${Role.DISPATCHER}`).to(`role:${Role.WATCHER}`).emit('fleet:pos', locations);

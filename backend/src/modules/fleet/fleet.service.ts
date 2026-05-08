@@ -32,33 +32,26 @@ export class FleetService {
       isActive: vehicle.isActive,
     };
 
-    // Store in Redis with an expiry (e.g., 5 minutes). If vehicle goes offline, it drops off map.
-    await this.app.redis.set(cacheKey, JSON.stringify(payload), 'EX', 300);
+    if (this.app.redis) {
+      await this.app.redis.set(cacheKey, JSON.stringify(payload), 'EX', 300);
+    }
 
     return payload;
   }
 
-  /**
-   * Retrieves a vehicle's last known location from Redis.
-   */
   async getVehicleLocation(imei: string): Promise<(Coordinates & { timestamp: string }) | null> {
+    if (!this.app.redis) return null;
     const cacheKey = `vehicle:${imei}:location`;
     const data = await this.app.redis.get(cacheKey);
-
     if (!data) return null;
     return JSON.parse(data);
   }
 
-  /**
-   * Retrieves all active vehicle locations from Redis.
-   * Useful for the map view and dispatch calculations.
-   */
   async getAllActiveVehicleLocations() {
+    if (!this.app.redis) return [];
     const keys = await this.app.redis.keys('vehicle:*:location');
     if (keys.length === 0) return [];
-
     const rawData = await this.app.redis.mget(keys);
-    
     return rawData
       .filter((data): data is string => data !== null)
       .map(data => JSON.parse(data));
