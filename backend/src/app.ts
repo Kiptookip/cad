@@ -82,6 +82,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     return reply.send({ ok: true, service: 'NMS-EOC API', version: '1.0.0' });
   });
 
+  app.get('/health', async (_request, reply) => {
+    return reply.send({ ok: true, status: 'healthy' });
+  });
+
   // ── Routes ────────────────────────────────────────────────────────────────
   app.register(authRoutes, { prefix: '/auth' });
   app.register(incidentRoutes, { prefix: '/incidents' });
