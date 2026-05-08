@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Build
+dist/
+backend/dist/
+
+# Generated code (Prisma client)
+backend/src/generated/
+
+# Environment
+.env
+backend/.env
+
+# Chunk Guide (per user request)
+BACKEND_CHUNKS.md
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pino-pretty.log
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+client-test/
+
+# Temporary setup files
+node-v22.14.0-win-x64/
+node22.zip
+git/
+git.zip
+node.zip
+frontend/node-v20.12.2-win-x64/
+frontend/node.zip
