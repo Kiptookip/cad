@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -29,6 +29,7 @@ interface MapProps {
   markers?: MapMarker[];
   className?: string;
   layerType?: 'light' | 'dark' | 'street';
+  onLocationSelect?: (lat: number, lng: number) => void;
 }
 
 // Custom icons
@@ -58,7 +59,16 @@ function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 }
 
-export default function Map({ center, zoom = 13, markers = [], className = 'h-full w-full', layerType = 'light' }: MapProps) {
+function ClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+export default function Map({ center, zoom = 13, markers = [], className = 'h-full w-full', layerType = 'light', onLocationSelect }: MapProps) {
   
   const tileUrls = {
     light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -79,6 +89,7 @@ export default function Map({ center, zoom = 13, markers = [], className = 'h-fu
           url={tileUrls[layerType]}
         />
         <MapUpdater center={center} zoom={zoom} />
+        {onLocationSelect && <ClickHandler onLocationSelect={onLocationSelect} />}
         
         {markers.map((marker) => (
           <Marker 

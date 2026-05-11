@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import ToastContainer from '../shared/ToastContainer';
+import DevRoleSwitcher from '../dev/DevRoleSwitcher';
 import { socket } from '../../lib/socket';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -51,6 +52,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <DevRoleSwitcher />
       <ToastContainer />
     </div>
   );
