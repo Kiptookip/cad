@@ -1,19 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, ReactNode } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { LiveVehicle, VehicleTrackingStatus, getVehicleTrackingStatus } from '../../hooks/useVehicleTracking';
 
-// Fix for default Leaflet markers not showing in Vite/React
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl,
-  iconUrl,
-  shadowUrl,
-});
+L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
+
+// ── Static incident marker ────────────────────────────────────────────────────
 
 export interface MapMarker {
   id: string;
@@ -23,86 +21,273 @@ export interface MapMarker {
   type: 'incident' | 'vehicle' | 'facility';
 }
 
-interface MapProps {
-  center: [number, number];
-  zoom?: number;
-  markers?: MapMarker[];
-  className?: string;
-  layerType?: 'light' | 'dark' | 'street';
-  onLocationSelect?: (lat: number, lng: number) => void;
-}
-
-// Custom icons
 const incidentIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  shadowSize: [41, 41],
 });
 
-const vehicleIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+// ── Vehicle marker system ─────────────────────────────────────────────────────
+
+const STATUS_PALETTE: Record<VehicleTrackingStatus, { bg: string; light: string; ring: string }> = {
+  moving:      { bg: '#15803d', light: '#22c55e', ring: 'rgba(34,197,94,0.18)' },
+  stopped:     { bg: '#b45309', light: '#f59e0b', ring: 'rgba(245,158,11,0.16)' },
+  busy:        { bg: '#1d4ed8', light: '#3b82f6', ring: 'rgba(59,130,246,0.20)' },
+  maintenance: { bg: '#b91c1c', light: '#ef4444', ring: 'rgba(239,68,68,0.16)' },
+  offline:     { bg: '#374151', light: '#6b7280', ring: 'rgba(107,114,128,0.12)' },
+};
+
+const STATUS_LABEL: Record<VehicleTrackingStatus, string> = {
+  moving:      'MOVING',
+  stopped:     'STOPPED',
+  busy:        'EN ROUTE',
+  maintenance: 'MAINTENANCE',
+  offline:     'OFFLINE',
+};
+
+function secsAgo(ts: string): string {
+  const s = Math.round((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  return `${Math.round(s / 3600)}h ago`;
+}
+
+function createVehicleIcon(heading: number, status: VehicleTrackingStatus, speed: number): L.DivIcon {
+  const p = STATUS_PALETTE[status];
+  const isMoving = status === 'moving';
+
+  const pulse = isMoving
+    ? `<circle cx="22" cy="22" r="15" fill="none" stroke="${p.light}" stroke-width="2">
+         <animate attributeName="r" values="14;20;14" dur="2s" repeatCount="indefinite"/>
+         <animate attributeName="opacity" values="0.7;0;0.7" dur="2s" repeatCount="indefinite"/>
+       </circle>`
+    : '';
+
+  const speedBadge = speed > 2
+    ? `<circle cx="37" cy="9" r="8" fill="${p.bg}" stroke="white" stroke-width="1.5"/>
+       <text x="37" y="13" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="7" font-weight="800">${Math.round(speed)}</text>`
+    : '';
+
+  return L.divIcon({
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" overflow="visible">
+      ${pulse}
+      <circle cx="22" cy="22" r="16" fill="${p.ring}"/>
+      <g transform="rotate(${heading}, 22, 22)">
+        <rect x="15" y="10" width="14" height="24" rx="4" fill="${p.light}" stroke="${p.bg}" stroke-width="1.5"/>
+        <rect x="16.5" y="11.5" width="11" height="6" rx="1.5" fill="rgba(255,255,255,0.75)"/>
+        <rect x="16.5" y="25" width="11" height="5" rx="1.5" fill="rgba(255,255,255,0.28)"/>
+        <polygon points="22,6 27,11 17,11" fill="${p.bg}"/>
+      </g>
+      ${speedBadge}
+    </svg>`,
+    className: '',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -26],
+  });
+}
+
+function vehiclePopupHtml(v: LiveVehicle, status: VehicleTrackingStatus): string {
+  const p = STATUS_PALETTE[status];
+  return `
+    <div style="font-family:system-ui,sans-serif;min-width:200px;padding:2px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:900;color:#0f172a;letter-spacing:-0.02em">${v.registration}</span>
+        <span style="background:${p.bg};color:white;font-size:9px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:0.07em">${STATUS_LABEL[status]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:11px">
+        <div style="color:#64748b;font-weight:600">Speed</div>
+        <div style="color:#0f172a;font-weight:800">${Math.round(v.speed)} km/h</div>
+        <div style="color:#64748b;font-weight:600">Ignition</div>
+        <div style="color:${v.ignition ? '#15803d' : '#dc2626'};font-weight:800">${v.ignition ? 'ON' : 'OFF'}</div>
+        <div style="color:#64748b;font-weight:600">Heading</div>
+        <div style="color:#0f172a;font-weight:800">${v.heading}°</div>
+        <div style="color:#64748b;font-weight:600">Last seen</div>
+        <div style="color:#0f172a;font-weight:800">${secsAgo(v.timestamp)}</div>
+      </div>
+      <div style="margin-top:9px;padding-top:7px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;font-family:monospace;font-weight:700">
+        IMEI ${v.imei}
+      </div>
+    </div>`;
+}
+
+// ── Map internals ─────────────────────────────────────────────────────────────
 
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
+  useEffect(() => { map.setView(center, zoom); }, [center, zoom, map]);
   return null;
 }
 
 function ClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      onLocationSelect(e.latlng.lat, e.latlng.lng);
-    },
-  });
+  useMapEvents({ click(e) { onLocationSelect(e.latlng.lat, e.latlng.lng); } });
   return null;
 }
 
-export default function Map({ center, zoom = 13, markers = [], className = 'h-full w-full', layerType = 'light', onLocationSelect }: MapProps) {
-  
-  const tileUrls = {
-    light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  };
+// ── Map overlay components ────────────────────────────────────────────────────
+
+const LEGEND_ITEMS: { color: string; label: string }[] = [
+  { color: '#22c55e', label: 'Moving' },
+  { color: '#f59e0b', label: 'Stopped' },
+  { color: '#3b82f6', label: 'En Route' },
+  { color: '#ef4444', label: 'Maintenance' },
+  { color: '#6b7280', label: 'Offline' },
+];
+
+function MapLegend({ hasIncidents }: { hasIncidents: boolean }) {
+  return (
+    <div className="absolute bottom-8 left-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2.5 pointer-events-none">
+      <p className="text-[8px] font-black tracking-[0.18em] text-slate-400 uppercase mb-2">Legend</p>
+      <div className="flex flex-col gap-1.5">
+        {LEGEND_ITEMS.map(item => (
+          <div key={item.label} className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
+            <span className="text-[10px] font-semibold text-slate-600 leading-none">{item.label}</span>
+          </div>
+        ))}
+        {hasIncidents && (
+          <>
+            <div className="border-t border-slate-100 my-0.5" />
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#dc2626]" />
+              <span className="text-[10px] font-semibold text-slate-600 leading-none">Incident</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface LiveBadgeProps {
+  vehicleCount: number;
+  incidentCount: number;
+  lastUpdatedAt: Date | null;
+}
+
+function LiveBadge({ vehicleCount, incidentCount, lastUpdatedAt }: LiveBadgeProps) {
+  const timeStr = lastUpdatedAt
+    ? lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : null;
+
+  return (
+    <div className="absolute top-3 right-3 z-[1000] flex flex-col items-end gap-1.5 pointer-events-none">
+      <div className="flex items-center gap-2 bg-[#0f172a]/85 backdrop-blur-sm text-white px-3 py-2 rounded-xl shadow-xl border border-white/10">
+        <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
+        <span className="text-[10px] font-black tracking-[0.15em]">LIVE</span>
+        {vehicleCount > 0 && (
+          <>
+            <span className="text-slate-500 text-[10px]">·</span>
+            <span className="text-[10px] font-bold text-slate-300">{vehicleCount} unit{vehicleCount !== 1 ? 's' : ''}</span>
+          </>
+        )}
+        {incidentCount > 0 && (
+          <>
+            <span className="text-slate-500 text-[10px]">·</span>
+            <span className="text-[10px] font-bold text-status-danger">{incidentCount} incident{incidentCount !== 1 ? 's' : ''}</span>
+          </>
+        )}
+      </div>
+      {timeStr && (
+        <div className="bg-[#0f172a]/70 backdrop-blur-sm text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border border-white/5">
+          {timeStr}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Public component ──────────────────────────────────────────────────────────
+
+interface MapProps {
+  center: [number, number];
+  zoom?: number;
+  markers?: MapMarker[];
+  vehicleMarkers?: LiveVehicle[];
+  className?: string;
+  layerType?: 'light' | 'dark' | 'street';
+  onLocationSelect?: (lat: number, lng: number) => void;
+  showLegend?: boolean;
+  showLiveBadge?: boolean;
+  lastUpdatedAt?: Date | null;
+  children?: ReactNode;
+}
+
+const TILE_URLS = {
+  light:  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  dark:   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+};
+
+export default function Map({
+  center,
+  zoom = 13,
+  markers = [],
+  vehicleMarkers = [],
+  className = 'h-full w-full',
+  layerType = 'light',
+  onLocationSelect,
+  showLegend = false,
+  showLiveBadge = false,
+  lastUpdatedAt = null,
+  children,
+}: MapProps) {
+  const hasIncidents = markers.length > 0;
 
   return (
     <div className={`relative z-0 ${className}`}>
-      <MapContainer 
-        center={center} 
-        zoom={zoom} 
+      <MapContainer
+        center={center}
+        zoom={zoom}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={tileUrls[layerType]}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url={TILE_URLS[layerType]}
         />
         <MapUpdater center={center} zoom={zoom} />
         {onLocationSelect && <ClickHandler onLocationSelect={onLocationSelect} />}
-        
-        {markers.map((marker) => (
-          <Marker 
-            key={marker.id} 
-            position={[marker.lat, marker.lng]}
-            icon={marker.type === 'incident' ? incidentIcon : vehicleIcon}
-          >
+
+        {/* Incident / facility markers */}
+        {markers.map(m => (
+          <Marker key={m.id} position={[m.lat, m.lng]} icon={incidentIcon}>
             <Popup>
-              <div className="font-sans font-bold text-sm">{marker.title}</div>
+              <div className="font-sans font-bold text-sm">{m.title}</div>
             </Popup>
           </Marker>
         ))}
+
+        {/* Live vehicle markers */}
+        {vehicleMarkers.map(v => {
+          const status = getVehicleTrackingStatus(v);
+          return (
+            <Marker
+              key={v.vehicleId}
+              position={[v.lat, v.lng]}
+              icon={createVehicleIcon(v.heading, status, v.speed)}
+            >
+              <Popup maxWidth={220}>
+                <div dangerouslySetInnerHTML={{ __html: vehiclePopupHtml(v, status) }} />
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
+
+      {/* Floating overlays — rendered outside MapContainer so they sit above tiles */}
+      {showLiveBadge && (
+        <LiveBadge
+          vehicleCount={vehicleMarkers.length}
+          incidentCount={markers.length}
+          lastUpdatedAt={lastUpdatedAt}
+        />
+      )}
+      {showLegend && <MapLegend hasIncidents={hasIncidents} />}
+      {children}
     </div>
   );
 }

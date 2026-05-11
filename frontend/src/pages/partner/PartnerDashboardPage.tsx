@@ -206,7 +206,7 @@ export default function PartnerDashboardPage() {
           </div>
         </div>
         <div className="flex-1 relative bg-slate-200">
-          <Map center={[-1.2921, 36.8219]} zoom={12} markers={mockMarkers} layerType="light" />
+          <Map center={[-1.2921, 36.8219]} zoom={12} markers={mapMarkers} layerType="light" />
         </div>
       </div>
 

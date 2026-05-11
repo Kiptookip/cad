@@ -6,6 +6,7 @@ import api from '../../api/client';
 import { Incident, Vehicle, User } from '../../types/api';
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { LiveVehicle } from '../../hooks/useVehicleTracking';
 
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -264,18 +265,41 @@ export default function IncidentDetailPage() {
             </div>
           </div>
 
-          {/* Map */}
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm h-64 overflow-hidden relative">
-            <div className="absolute top-4 left-4 z-10">
-              <div className="bg-white/90 backdrop-blur p-2 rounded shadow-sm flex items-center gap-2 border border-surface-border">
-                <span className="w-3 h-3 bg-status-danger rounded-full animate-pulse"></span>
-                <span className="font-sans text-[11px] font-bold tracking-widest uppercase">INCIDENT RADIUS</span>
+          {/* Map — incident scene + nearby vehicle positions */}
+          <div className="bg-white border border-surface-border rounded-lg shadow-sm h-72 overflow-hidden relative">
+            <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded shadow-sm flex items-center gap-2 border border-surface-border">
+                <span className="w-2.5 h-2.5 bg-status-danger rounded-full animate-pulse"></span>
+                <span className="font-sans text-[10px] font-black tracking-widest uppercase">Scene</span>
               </div>
+              {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length > 0 && (
+                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded shadow-sm flex items-center gap-2 border border-surface-border">
+                  <span className="w-2.5 h-2.5 bg-brand-green rounded-full animate-pulse"></span>
+                  <span className="font-sans text-[10px] font-black tracking-widest uppercase">
+                    {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length} Units
+                  </span>
+                </div>
+              )}
             </div>
-            <Map 
-              center={[incident.lat || -1.2921, incident.lng || 36.8219]} 
-              zoom={15} 
+            <Map
+              center={[incident.lat || -1.2921, incident.lng || 36.8219]}
+              zoom={14}
               markers={[{ id: incident.id, lat: incident.lat || -1.2921, lng: incident.lng || 36.8219, title: incident.caseNumber, type: 'incident' }]}
+              vehicleMarkers={(nearestVehicles ?? [])
+                .filter(v => v.lastLat && v.lastLng)
+                .map((v): LiveVehicle => ({
+                  vehicleId: v.id,
+                  imei: v.imei,
+                  registration: v.registrationNumber,
+                  lat: v.lastLat!,
+                  lng: v.lastLng!,
+                  speed: 0,
+                  heading: 0,
+                  ignition: v.status !== 'MAINTENANCE',
+                  timestamp: v.lastLocationAt ?? new Date().toISOString(),
+                  dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
+                  isActive: v.isActive,
+                }))}
             />
           </div>
         </div>

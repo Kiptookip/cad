@@ -1,12 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { WarningCircle, Broadcast, Truck, Timer, Stack, CornersOut, Plus, Users, CloudCheck, Network, X } from '@phosphor-icons/react';
 import api from '../../api/client';
-import { Incident, Vehicle } from '../../types/api';
+import { Incident } from '../../types/api';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
+import { useVehicleTracking } from '../../hooks/useVehicleTracking';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -32,16 +33,8 @@ export default function DashboardPage() {
     },
   });
 
-  // Query to get active vehicles for map activity
   const queryClient = useQueryClient();
-
-  const { data: vehiclesData } = useQuery({
-    queryKey: ['vehicles', 'active'],
-    queryFn: async () => {
-      const res = await api.get('/admin/vehicles');
-      return res.data.data as Vehicle[];
-    },
-  });
+  const { vehicles: liveVehicles, lastUpdatedAt } = useVehicleTracking();
 
   // Listen to real-time events
   useEffect(() => {
@@ -59,24 +52,17 @@ export default function DashboardPage() {
 
   const queueCount = queueData?.length ?? 0;
   const recentIncidents = incidentsData ?? [];
-  const availableVehicles = vehiclesData?.filter(v => v.isActive).length ?? 0;
+  const availableVehicles = liveVehicles.filter(v => v.dbStatus === 'READY').length;
 
-  const mapMarkers = [
-    ...(recentIncidents.filter(i => i.lat && i.lng).map(inc => ({
+  const incidentMarkers = recentIncidents
+    .filter(i => i.lat && i.lng)
+    .map(inc => ({
       id: inc.id,
       lat: inc.lat!,
       lng: inc.lng!,
       title: `${inc.caseNumber} - ${inc.chiefComplaint}`,
-      type: 'incident' as const
-    }))),
-    ...(vehiclesData?.filter(v => v.lastLat && v.lastLng).map(v => ({
-      id: v.id,
-      lat: v.lastLat!,
-      lng: v.lastLng!,
-      title: `Unit ${v.registrationNumber}`,
-      type: 'vehicle' as const
-    })) || [])
-  ];
+      type: 'incident' as const,
+    }));
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
@@ -215,7 +201,16 @@ export default function DashboardPage() {
           </div>
           <div className={`relative flex-1 bg-slate-200 ${isMapExpanded ? 'h-full' : 'min-h-[300px] sm:min-h-[400px] lg:min-h-[550px]'}`}>
             {/* Real Interactive Map */}
-            <Map center={[-1.2921, 36.8219]} zoom={isMapExpanded ? 14 : 12} markers={mapMarkers} layerType={mapLayer} />
+            <Map
+              center={[-1.2921, 36.8219]}
+              zoom={isMapExpanded ? 14 : 12}
+              markers={incidentMarkers}
+              vehicleMarkers={liveVehicles}
+              layerType={mapLayer}
+              showLiveBadge
+              showLegend
+              lastUpdatedAt={lastUpdatedAt}
+            />
           </div>
         </div>
 

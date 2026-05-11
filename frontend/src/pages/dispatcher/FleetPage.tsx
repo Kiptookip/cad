@@ -8,15 +8,17 @@ import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
 import AddVehicleModal from '../../components/shared/AddVehicleModal';
+import { useVehicleTracking } from '../../hooks/useVehicleTracking';
 
 export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
+  const { vehicles: liveVehicles, lastUpdatedAt } = useVehicleTracking();
 
   const { data: vehicles, isLoading } = useQuery({
-    queryKey: ['vehicles'],
+    queryKey: ['admin', 'vehicles'],
     queryFn: async () => {
       const res = await api.get('/admin/vehicles');
       return res.data.data as Vehicle[];
@@ -25,20 +27,7 @@ export default function FleetPage() {
 
   useEffect(() => {
     socket.connect();
-    
-    socket.on('fleet:pos', (updatedVehicles: Vehicle[]) => {
-      queryClient.setQueryData(['vehicles'], (old: Vehicle[] | undefined) => {
-        if (!old) return updatedVehicles;
-        // Merge updates
-        const oldMap = new Map(old.map(v => [v.id, v]));
-        updatedVehicles.forEach(uv => oldMap.set(uv.id, uv));
-        return Array.from(oldMap.values());
-      });
-    });
-
-    return () => {
-      socket.off('fleet:pos');
-    };
+    return () => { socket.off('fleet:pos'); };
   }, [queryClient]);
 
   const filteredVehicles = vehicles?.filter(v => 
@@ -51,15 +40,6 @@ export default function FleetPage() {
   const idleCount = vehicles?.filter(v => v.status === 'READY').length || 0;
   const offlineCount = vehicles?.filter(v => v.status === 'MAINTENANCE').length || 0;
 
-  const markers = filteredVehicles
-    .filter(v => v.lastLat && v.lastLng)
-    .map(v => ({
-      id: v.id,
-      lat: v.lastLat!,
-      lng: v.lastLng!,
-      title: v.registrationNumber,
-      type: 'vehicle' as const
-    }));
 
   const exportFleetToCSV = () => {
     if (!vehicles || vehicles.length === 0) return;
@@ -280,7 +260,15 @@ export default function FleetPage() {
             </div>
             <div className="w-full h-48 rounded-xl relative overflow-hidden mb-6 border border-white/10 shadow-inner group">
               <div className="absolute inset-0 bg-brand-sidebar/40 z-10 pointer-events-none group-hover:bg-transparent transition-all"></div>
-              <Map center={[-1.2921, 36.8219]} zoom={11} markers={markers} layerType="dark" />
+              <Map
+                center={[-1.2921, 36.8219]}
+                zoom={11}
+                vehicleMarkers={liveVehicles}
+                layerType="dark"
+                showLiveBadge
+                showLegend
+                lastUpdatedAt={lastUpdatedAt}
+              />
             </div>
             <p className="font-sans text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-wide">
               Real-time monitoring of <span className="text-brand-green">{activeCount} tactical units</span> currently deployed across the metropolitan area.
