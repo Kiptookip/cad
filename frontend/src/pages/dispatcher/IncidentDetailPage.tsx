@@ -46,35 +46,38 @@ export default function IncidentDetailPage() {
     }
   });
 
-  // Fetch Nearest Vehicles (mock endpoint for now)
+  // Fetch nearest vehicles — use lat/lng from incident if available, else list all
   const { data: nearestVehicles } = useQuery({
     queryKey: ['vehicles', 'nearest', incident?.id],
     queryFn: async () => {
-      // In a real app, pass lat/lng
-      const res = await api.get('/vehicles?status=READY');
+      if (incident?.lat && incident?.lng) {
+        const res = await api.get(`/dispatch/nearest-vehicles?lat=${incident.lat}&lng=${incident.lng}&limit=10`);
+        return res.data.data as Vehicle[];
+      }
+      const res = await api.get('/admin/vehicles');
       return res.data.data as Vehicle[];
     },
     enabled: !!incident,
   });
 
-  // Fetch available personnel (mock endpoint)
+  // Fetch available personnel (DRIVER, EMT, NURSE roles for crew selection)
   const { data: personnel } = useQuery({
     queryKey: ['users', 'personnel'],
     queryFn: async () => {
-      const res = await api.get('/users');
+      const res = await api.get('/admin/users?role=DRIVER&limit=100');
       return res.data.data as User[];
     },
   });
 
-  // Dispatch Mutation
+  // Dispatch Mutation — creates a Task (assigns crew to incident)
   const dispatchMutation = useMutation({
     mutationFn: async () => {
-      return api.post('/dispatch/assign', {
+      return api.post('/tasks', {
         incidentId: id,
         vehicleId: selectedVehicleId,
         driverId: selectedDriverId,
         emtId: selectedEmtId,
-        comments: dispatcherComments
+        nurseId: selectedEmtId,
       });
     },
     onSuccess: () => {

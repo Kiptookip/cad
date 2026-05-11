@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { 
-  X, Truck, IdentificationCard, Broadcast, Globe, 
-  ShieldCheck, Radio, Toolbox, UsersThree, GasPump,
+import {
+  X, Truck, IdentificationCard, Broadcast, Globe,
+  Radio, Toolbox, UsersThree, GasPump,
   Lightning, Info, WarningCircle
 } from '@phosphor-icons/react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
+import { Agency } from '../../types/api';
 import { useNotificationStore } from '../../stores/notificationStore';
 
 interface AddVehicleModalProps {
@@ -19,45 +20,44 @@ export default function AddVehicleModal({ isOpen, onClose }: AddVehicleModalProp
   
   const [formData, setFormData] = useState({
     registrationNumber: '',
-    callSign: '',
     imei: '',
-    agencyId: 'agency-001',
-    type: 'ALS AMBULANCE',
+    agencyId: '',
     equipmentLevel: 'ADVANCED',
-    radioChannel: 'EOC-CH-01',
     crewCapacity: '3',
-    initialStatus: 'READY'
+  });
+
+  const { data: agencies } = useQuery({
+    queryKey: ['admin', 'agencies'],
+    queryFn: async () => {
+      const res = await api.get<{ data: Agency[] }>('/admin/agencies');
+      return res.data.data;
+    },
   });
 
   const mutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return api.post('/vehicles', {
-        ...data,
-        status: data.initialStatus,
-        isActive: true,
-        lastLat: -1.2921,
-        lastLng: 36.8219
+      return api.post('/admin/vehicles', {
+        registrationNumber: data.registrationNumber,
+        imei: data.imei,
+        agencyId: data.agencyId,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      addNotification({ 
-        type: 'success', 
-        title: 'Tactical Unit Activated', 
-        message: `Unit ${formData.callSign || formData.registrationNumber} is now live on the grid.` 
+      addNotification({
+        type: 'success',
+        title: 'Tactical Unit Activated',
+        message: `Unit ${formData.registrationNumber} is now live on the grid.`,
       });
       onClose();
     },
-    onError: () => {
-       // Demo fallback
-       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-       addNotification({ 
-         type: 'success', 
-         title: 'Unit Registered (Tactical Bypass)', 
-         message: `Unit ${formData.callSign || formData.registrationNumber} has been added to the local roster.` 
-       });
-       onClose();
-    }
+    onError: (err: any) => {
+      addNotification({
+        type: 'error',
+        title: 'Registration Failed',
+        message: err?.response?.data?.message || 'Could not register unit. Please try again.',
+      });
+    },
   });
 
   if (!isOpen) return null;
@@ -129,20 +129,6 @@ export default function AddVehicleModal({ isOpen, onClose }: AddVehicleModalProp
 
                 <div>
                   <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">
-                    <Radio size={14} weight="bold" /> Tactical Call Sign
-                  </label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="e.g. ALPHA-ONE"
-                    value={formData.callSign}
-                    onChange={(e) => setFormData({...formData, callSign: e.target.value})}
-                    className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 font-sans text-sm font-black text-brand-teal focus:ring-4 focus:ring-brand-teal/10 focus:border-brand-teal outline-none transition-all shadow-sm placeholder:text-slate-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">
                     <Broadcast size={14} weight="bold" /> Telemetry IMEI
                   </label>
                   <input 
@@ -170,14 +156,16 @@ export default function AddVehicleModal({ isOpen, onClose }: AddVehicleModalProp
                     <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">
                       <Globe size={14} weight="bold" /> Authority
                     </label>
-                    <select 
+                    <select
+                      required
                       className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 font-sans text-xs font-black text-brand-teal outline-none focus:ring-4 focus:ring-brand-teal/10 appearance-none shadow-sm"
                       value={formData.agencyId}
                       onChange={(e) => setFormData({...formData, agencyId: e.target.value})}
                     >
-                      <option value="agency-001">NMS Internal</option>
-                      <option value="agency-002">St. Johns</option>
-                      <option value="agency-003">Red Cross</option>
+                      <option value="">Select agency...</option>
+                      {agencies?.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -234,7 +222,7 @@ export default function AddVehicleModal({ isOpen, onClose }: AddVehicleModalProp
                <div className="bg-slate-100 p-2 rounded-lg">
                  <GasPump size={18} weight="bold" className="text-slate-400" />
                </div>
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fuel Level: 100% Nominal</span>
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit will default to active status</span>
             </div>
             
             <button 

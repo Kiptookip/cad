@@ -26,8 +26,10 @@ export interface User {
   phone?: string;
   role: Role;
   agencyId: string;
+  agency?: Agency;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Agency {
@@ -44,10 +46,23 @@ export interface Vehicle {
   registrationNumber: string;
   imei: string;
   isActive: boolean;
+  status?: 'READY' | 'BUSY' | 'MAINTENANCE';
   lastLat?: number;
   lastLng?: number;
   lastLocationAt?: string;
+  updatedAt?: string;
+  createdAt?: string;
   agencyId: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export interface Facility {

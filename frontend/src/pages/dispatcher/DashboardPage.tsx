@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { WarningCircle, Broadcast, Truck, Timer, Stack, CornersOut, Plus, Minus, Users, CloudCheck, Network, Shield, X } from '@phosphor-icons/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { WarningCircle, Broadcast, Truck, Timer, Stack, CornersOut, Users, CloudCheck, Network, X } from '@phosphor-icons/react';
 import api from '../../api/client';
-import { Incident } from '../../types/api';
+import { Incident, Vehicle } from '../../types/api';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../../lib/socket';
@@ -33,10 +33,12 @@ export default function DashboardPage() {
   });
 
   // Query to get active vehicles for map activity
+  const queryClient = useQueryClient();
+
   const { data: vehiclesData } = useQuery({
     queryKey: ['vehicles', 'active'],
     queryFn: async () => {
-      const res = await api.get('/vehicles');
+      const res = await api.get('/admin/vehicles');
       return res.data.data as Vehicle[];
     },
   });
@@ -45,9 +47,9 @@ export default function DashboardPage() {
   useEffect(() => {
     socket.connect();
     
-    socket.on('incident:new', (incident) => {
-      console.log('New incident received:', incident);
-      // In a real app, we would invalidate queries or update React Query cache here
+    socket.on('incident:new', () => {
+      queryClient.invalidateQueries({ queryKey: ['dispatch', 'queue'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents', 'recent'] });
     });
 
     return () => {
@@ -55,8 +57,9 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const queueCount = queueData?.length || 0;
-  const recentIncidents = incidentsData || [];
+  const queueCount = queueData?.length ?? 0;
+  const recentIncidents = incidentsData ?? [];
+  const availableVehicles = vehiclesData?.filter(v => v.isActive).length ?? 0;
 
   const mapMarkers = [
     ...(recentIncidents.filter(i => i.lat && i.lng).map(inc => ({
@@ -117,7 +120,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-end justify-between relative z-10">
             <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">
-              {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length || 8}
+              {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length}
             </span>
             <span className="text-brand-green font-black text-[9px] flex items-center gap-1 bg-brand-green/5 px-2 py-1 rounded-md">
               <Plus size={10} weight="bold" /> 2 New
@@ -138,7 +141,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">22</span>
+            <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">{availableVehicles}</span>
             <span className="bg-brand-teal text-white px-2 py-1 rounded-md text-[8px] font-black tracking-widest uppercase shadow-lg shadow-brand-teal/20">STANDBY</span>
           </div>
         </div>
@@ -261,26 +264,9 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 )) : (
-                  // Mock data rows with enhanced styling
-                  [1,2,3,4,5].map(i => (
-                    <tr key={i} className="border-b border-surface-border/50 hover:bg-brand-green/5 cursor-pointer transition-all duration-200 group/row">
-                      <td className="px-8 py-5">
-                        <div className="flex flex-col">
-                          <span className="font-sans text-sm font-black text-brand-teal group-hover/row:text-brand-green transition-colors">#902{i}</span>
-                          <span className="text-[9px] font-black text-status-danger uppercase tracking-widest mt-0.5">Critical</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5">
-                        <div className="flex flex-col">
-                          <span className="font-sans text-sm font-bold text-brand-teal line-clamp-1 group-hover/row:text-brand-green transition-colors">Emergency Protocol {i}</span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Zone {i} Sector Delta</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5">
-                        <span className="font-sans text-xs text-status-danger font-black">02:14</span>
-                      </td>
-                    </tr>
-                  ))
+                  <tr>
+                    <td colSpan={3} className="px-8 py-12 text-center font-bold text-slate-400 text-sm uppercase tracking-widest">Queue is clear</td>
+                  </tr>
                 )}
               </tbody>
             </table>

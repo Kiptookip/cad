@@ -18,7 +18,7 @@ export default function FleetPage() {
   const { data: vehicles, isLoading } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const res = await api.get('/vehicles');
+      const res = await api.get('/admin/vehicles');
       return res.data.data as Vehicle[];
     },
   });
@@ -52,11 +52,11 @@ export default function FleetPage() {
   const offlineCount = vehicles?.filter(v => v.status === 'MAINTENANCE').length || 0;
 
   const markers = filteredVehicles
-    .filter(v => v.lastLat && v.lastLong)
+    .filter(v => v.lastLat && v.lastLng)
     .map(v => ({
       id: v.id,
       lat: v.lastLat!,
-      lng: v.lastLong!,
+      lng: v.lastLng!,
       title: v.registrationNumber,
       type: 'vehicle' as const
     }));
@@ -70,8 +70,8 @@ export default function FleetPage() {
       v.registrationNumber,
       v.status,
       v.imei,
-      v.updatedAt ? new Date(v.updatedAt).toLocaleString() : 'N/A',
-      v.lastLat && v.lastLong ? `${v.lastLat}, ${v.lastLong}` : 'SIGNAL LOST'
+      v.lastLocationAt ? new Date(v.lastLocationAt).toLocaleString() : 'N/A',
+      v.lastLat && v.lastLng ? `${v.lastLat}, ${v.lastLng}` : 'SIGNAL LOST'
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -211,11 +211,11 @@ export default function FleetPage() {
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">{v.registrationNumber}</td>
                     <td className="px-8 py-5 text-[11px] font-mono font-bold text-slate-400">{v.imei}</td>
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">
-                      {v.updatedAt ? formatDistanceToNow(new Date(v.updatedAt), { addSuffix: true }) : 'N/A'}
+                      {v.lastLocationAt ? formatDistanceToNow(new Date(v.lastLocationAt), { addSuffix: true }) : 'N/A'}
                     </td>
                     <td className="px-8 py-5">
                       <div className="bg-slate-100 px-3 py-1 rounded text-[10px] font-mono font-bold text-slate-500 inline-block border border-surface-border/50">
-                        {v.lastLat && v.lastLong ? `${v.lastLat.toFixed(4)}, ${v.lastLong.toFixed(4)}` : 'SIGNAL LOST'}
+                        {v.lastLat && v.lastLng ? `${v.lastLat.toFixed(4)}, ${v.lastLng.toFixed(4)}` : 'SIGNAL LOST'}
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">

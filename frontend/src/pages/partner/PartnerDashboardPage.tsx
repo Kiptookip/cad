@@ -1,22 +1,30 @@
 import { ShareNetwork, ShieldWarning, Handshake, CheckCircle, Warning, MagnifyingGlass, Funnel, ArrowSquareOut, MapPin, Users } from '@phosphor-icons/react';
 import { formatDistanceToNow } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/client';
+import { Incident } from '../../types/api';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
-
-const partnerCases = [
-  { id: 'EOC-4421', type: 'Medical Emergency', location: 'West District - Sector 4', timestamp: new Date(Date.now() - 1000 * 60 * 15), status: 'Urgent' },
-  { id: 'EOC-4419', type: 'Traffic Collision', location: 'Hwy 101 - Exit 12', timestamp: new Date(Date.now() - 1000 * 60 * 45), status: 'Active' },
-  { id: 'EOC-4412', type: 'Structural Fire', location: 'Central Industrial Park', timestamp: new Date(Date.now() - 1000 * 60 * 120), status: 'Active' },
-  { id: 'EOC-4398', type: 'Public Disturbance', location: 'City Square Plaza', timestamp: new Date(Date.now() - 1000 * 60 * 180), status: 'Pending' },
-];
 
 export default function PartnerDashboardPage() {
   const { addNotification } = useNotificationStore();
 
-  const mockMarkers = [
-    { id: 'm1', lat: -1.2921, lng: 36.8219, title: 'Medical Emergency', type: 'incident' as const },
-    { id: 'm2', lat: -1.2800, lng: 36.8300, title: 'Traffic Collision', type: 'incident' as const },
-  ];
+  const { data: incidentsData, isLoading } = useQuery({
+    queryKey: ['partner', 'incidents'],
+    queryFn: async () => {
+      const res = await api.get('/partner/incidents?limit=20');
+      return res.data.data as Incident[];
+    },
+  });
+
+  const incidents = incidentsData ?? [];
+  const urgentCount = incidents.filter(i => i.status === 'SUBMITTED').length;
+  const activeCount = incidents.filter(i => i.status === 'DISPATCHED' || i.status === 'DISPATCH_HANDLING').length;
+  const resolvedCount = incidents.filter(i => i.status === 'RESOLVED').length;
+
+  const mapMarkers = incidents
+    .filter(i => i.lat && i.lng)
+    .map(i => ({ id: i.id, lat: i.lat!, lng: i.lng!, title: i.chiefComplaint, type: 'incident' as const }));
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
       
@@ -45,10 +53,10 @@ export default function PartnerDashboardPage() {
             <div className="p-3 bg-brand-green/10 rounded-xl group-hover:bg-brand-green group-hover:text-white transition-all">
               <ShareNetwork size={26} className="text-brand-green group-hover:text-inherit" />
             </div>
-            <span className="bg-status-danger text-white text-[10px] font-black px-2.5 py-1 rounded-md shadow-sm animate-pulse">4 URGENT</span>
+            {urgentCount > 0 && <span className="bg-status-danger text-white text-[10px] font-black px-2.5 py-1 rounded-md shadow-sm animate-pulse">{urgentCount} URGENT</span>}
           </div>
-          <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-1">New Forwarded Cases</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">12</div>
+          <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-1">Forwarded Cases</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{incidents.length}</div>
           <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-all">
             <ShieldWarning size={140} weight="fill" />
           </div>
@@ -61,7 +69,7 @@ export default function PartnerDashboardPage() {
             </div>
           </div>
           <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-1">Active Operations</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">38</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{activeCount}</div>
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-surface-border shadow-sm group hover:border-brand-teal transition-all">
@@ -71,7 +79,7 @@ export default function PartnerDashboardPage() {
             </div>
           </div>
           <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-1">Resolved Units</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">156</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{resolvedCount}</div>
         </div>
       </div>
 
@@ -111,33 +119,38 @@ export default function PartnerDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border/50">
-                {partnerCases.map(c => (
+                {isLoading ? (
+                  <tr><td colSpan={5} className="px-8 py-10 text-center font-bold text-slate-400">Loading cases...</td></tr>
+                ) : incidents.length === 0 ? (
+                  <tr><td colSpan={5} className="px-8 py-10 text-center font-bold text-slate-400 uppercase tracking-widest">No forwarded cases</td></tr>
+                ) : incidents.map(c => (
                   <tr key={c.id} className="hover:bg-brand-green/5 transition-all group cursor-default">
                     <td className="px-8 py-5">
-                      <div className="font-black text-brand-teal text-sm uppercase tracking-tight">{c.id}</div>
-                      <div className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">{c.type}</div>
+                      <div className="font-black text-brand-teal text-sm uppercase tracking-tight">{c.caseNumber}</div>
+                      <div className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">{c.chiefComplaint}</div>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2 text-sm font-bold text-brand-teal">
                         <MapPin size={16} className="text-slate-300" />
-                        {c.location}
+                        {c.locationName}
                       </div>
                     </td>
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">
-                      {formatDistanceToNow(c.timestamp, { addSuffix: true })}
+                      {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
                     </td>
                     <td className="px-8 py-5">
                       <span className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-sm border ${
-                        c.status === 'Urgent' ? 'bg-status-danger/10 text-status-danger border-status-danger/20' :
-                        c.status === 'Active' ? 'bg-status-warning/10 text-status-warning border-status-warning/20' :
+                        c.status === 'SUBMITTED' ? 'bg-status-danger/10 text-status-danger border-status-danger/20' :
+                        c.status === 'DISPATCHED' || c.status === 'DISPATCH_HANDLING' ? 'bg-status-warning/10 text-status-warning border-status-warning/20' :
+                        c.status === 'RESOLVED' ? 'bg-brand-green/10 text-brand-green border-brand-green/20' :
                         'bg-slate-100 text-slate-400 border-slate-200'
                       }`}>
                         {c.status}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => addNotification({ type: 'info', title: 'Case Details', message: `Opened details for ${c.id}` })}
+                      <button
+                        onClick={() => addNotification({ type: 'info', title: 'Case Details', message: `Opened details for ${c.caseNumber}` })}
                         className="p-3 rounded-xl text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm border border-surface-border"
                       >
                         <ArrowSquareOut size={22} weight="bold" />

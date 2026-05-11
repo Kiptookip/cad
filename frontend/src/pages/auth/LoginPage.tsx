@@ -29,30 +29,10 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setServerError('');
     try {
-      // ── MOCK BYPASS (comment out to use real backend) ──────────────────────
-      let role = 'ADMIN';
-      if (data.email.includes('watcher')) role = 'WATCHER';
-      else if (data.email.includes('dispatcher')) role = 'DISPATCHER';
-      else if (data.email.includes('partner')) role = 'PARTNER';
-
-      const mockUser = {
-        id: 'mock-user-123',
-        email: data.email,
-        name: data.email.split('@')[0].replace('.', ' '),
-        role: role as any,
-        agencyId: 'agency-001',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      setAuth('mock-jwt-token-12345', mockUser);
-      // ── END MOCK BYPASS ────────────────────────────────────────────────────
-
-      // ── REAL BACKEND (uncomment when Railway is fixed) ─────────────────────
-      // const res = await api.post('/auth/login', { email: data.email, passwordRaw: data.passwordRaw });
-      // const result = res.data.data;
-      // setAuth(result.token, result.user);
-      // const role = result.user.role;
-      // ────────────────────────────────────────────────────────────────────────
+      const res = await api.post('/auth/login', { email: data.email, passwordRaw: data.passwordRaw });
+      const result = res.data.data;
+      setAuth(result.token, result.user);
+      const role = result.user.role;
 
       if (['SUPER_ADMIN', 'ADMIN'].includes(role)) navigate('/admin/users');
       else if (role === 'DISPATCHER') navigate('/dashboard');
@@ -60,7 +40,8 @@ export default function LoginPage() {
       else if (role === 'PARTNER') navigate('/partner/dashboard');
       else navigate('/unauthorized');
     } catch (error: any) {
-      setServerError('Login failed. Please try again.');
+      const msg = error?.response?.data?.message;
+      setServerError(msg || 'Invalid credentials. Please try again.');
     }
   };
 

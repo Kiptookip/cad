@@ -31,7 +31,6 @@ export default function AddPersonnelModal({ isOpen, onClose }: AddPersonnelModal
 
   // Fetch agencies for the dropdown
   const { data: agenciesResponse } = useQuery({
-    queryKey: ['agencies'],
     queryKey: ['admin', 'agencies'],
     queryFn: async () => {
       const res = await api.get<{ data: Agency[] }>('/admin/agencies');
