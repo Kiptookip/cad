@@ -209,6 +209,7 @@ export default function DashboardPage() {
               layerType={mapLayer}
               showLiveBadge
               showLegend
+              showVehicleList
               lastUpdatedAt={lastUpdatedAt}
             />
           </div>

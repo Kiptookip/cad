@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, MagnifyingGlass, Funnel, Download, DotsThreeVertical, ArrowUpRight, MapTrifold } from '@phosphor-icons/react';
+import { PlusCircle, MagnifyingGlass, Funnel, Download, DotsThreeVertical, ArrowUpRight, MapTrifold, Crosshair } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Vehicle } from '../../types/api';
 import { socket } from '../../lib/socket';
@@ -13,6 +13,7 @@ import { useVehicleTracking } from '../../hooks/useVehicleTracking';
 export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [focusPosition, setFocusPosition] = useState<[number, number] | undefined>(undefined);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
   const { vehicles: liveVehicles, lastUpdatedAt } = useVehicleTracking();
@@ -199,13 +200,30 @@ export default function FleetPage() {
                         {v.lastLat && v.lastLng ? `${v.lastLat.toFixed(4)}, ${v.lastLng.toFixed(4)}` : 'SIGNAL LOST'}
                       </div>
                     </td>
-                    <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => addNotification({ type: 'info', title: 'Vehicle Options', message: 'Vehicle management menu opened.' })}
-                        className="p-2 text-slate-400 hover:text-brand-teal hover:bg-white rounded-lg transition-all shadow-sm"
-                      >
-                        <DotsThreeVertical size={24} weight="bold" />
-                      </button>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center justify-end gap-2">
+                        {(() => {
+                          const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
+                          const lat = live?.lat ?? v.lastLat;
+                          const lng = live?.lng ?? v.lastLng;
+                          return (
+                            <button
+                              title="Locate on map"
+                              disabled={!lat || !lng}
+                              onClick={() => { if (lat && lng) setFocusPosition([lat, lng]); }}
+                              className="p-2 text-slate-400 hover:text-brand-green hover:bg-brand-green/10 rounded-lg transition-all shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <Crosshair size={20} weight="bold" />
+                            </button>
+                          );
+                        })()}
+                        <button
+                          onClick={() => addNotification({ type: 'info', title: 'Vehicle Options', message: 'Vehicle management menu opened.' })}
+                          className="p-2 text-slate-400 hover:text-brand-teal hover:bg-white rounded-lg transition-all shadow-sm"
+                        >
+                          <DotsThreeVertical size={24} weight="bold" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -268,6 +286,7 @@ export default function FleetPage() {
                 layerType="dark"
                 showLiveBadge
                 showLegend
+                focusPosition={focusPosition}
                 lastUpdatedAt={lastUpdatedAt}
               />
             </div>
