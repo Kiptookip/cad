@@ -11,12 +11,29 @@ import { useAuthStore } from '../../stores/authStore';
 export default function AppShell() {
   const { addNotification } = useNotificationStore();
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !user) return;
 
     socket.connect();
+
+    // Join role and user rooms so backend can target this client
+    socket.on('connect', () => {
+      socket.emit('join:room', {
+        userId: user.id,
+        roles: [user.role],
+      });
+    });
+
+    // If already connected when this effect runs (e.g. role switch), join immediately
+    if (socket.connected) {
+      socket.emit('join:room', {
+        userId: user.id,
+        roles: [user.role],
+      });
+    }
 
     socket.on('incident:new', (data) => {
       addNotification({
@@ -35,10 +52,11 @@ export default function AppShell() {
     });
 
     return () => {
+      socket.off('connect');
       socket.off('incident:new');
       socket.off('fleet:offline');
     };
-  }, [addNotification, token]);
+  }, [addNotification, token, user]);
 
   // Redirect to login if not authenticated - MUST BE AFTER ALL HOOKS
   if (!token) return <Navigate to="/login" replace />;

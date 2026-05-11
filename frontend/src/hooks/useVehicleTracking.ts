@@ -39,25 +39,33 @@ export function useVehicleTracking() {
       return (res.data.data ?? res.data) as Vehicle[];
     },
     staleTime: 30_000,
+    // Fallback: re-fetch DB positions every 35s in case the socket is down.
+    // The socket is the primary path; this keeps the map alive on reconnect.
+    refetchInterval: 35_000,
   });
 
-  // Seed from DB last-known positions (written by Uffizio poll every 30s)
+  // Sync from DB — runs on mount and every 35s (fallback when socket is down).
+  // Socket updates take priority: we only overwrite a position if the DB timestamp
+  // is newer than what we already have.
   useEffect(() => {
     if (!vehicles) return;
     setLivePositions(prev => {
       const next = new Map(prev);
       for (const v of vehicles) {
         if (!v.lastLat || !v.lastLng) continue;
-        if (!next.has(v.id)) {
+        const existing = next.get(v.id);
+        const dbTs = new Date(v.lastLocationAt ?? 0).getTime();
+        const existingTs = existing ? new Date(existing.timestamp).getTime() : 0;
+        if (!existing || dbTs > existingTs) {
           next.set(v.id, {
             vehicleId: v.id,
             imei: v.imei,
             registration: v.registrationNumber,
             lat: v.lastLat,
             lng: v.lastLng,
-            speed: 0,
-            heading: 0,
-            ignition: false,
+            speed: existing?.speed ?? 0,
+            heading: existing?.heading ?? 0,
+            ignition: existing?.ignition ?? false,
             timestamp: v.lastLocationAt ?? new Date().toISOString(),
             dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
             isActive: v.isActive,
@@ -66,8 +74,8 @@ export function useVehicleTracking() {
       }
       return next;
     });
-    if (!lastUpdatedAt && vehicles.some(v => v.lastLat)) {
-      setLastUpdatedAt(new Date());
+    if (vehicles.some(v => v.lastLat)) {
+      setLastUpdatedAt(prev => prev ?? new Date());
     }
   }, [vehicles]);
 
