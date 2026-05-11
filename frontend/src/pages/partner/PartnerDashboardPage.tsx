@@ -163,34 +163,35 @@ export default function PartnerDashboardPage() {
           </div>
         </div>
 
-        {/* Workload Mock */}
+        {/* Case Breakdown */}
         <div className="flex-1 bg-brand-sidebar p-8 rounded-xl shadow-2xl border border-brand-teal flex flex-col h-fit">
           <div className="flex items-center gap-3 mb-8">
-             <div className="bg-brand-green/20 p-2 rounded-lg">
-                <Users size={22} weight="bold" className="text-brand-green" />
-              </div>
-            <h4 className="font-sans text-xl font-black text-white uppercase tracking-tight">Unit Load</h4>
+            <div className="bg-brand-green/20 p-2 rounded-lg">
+              <Users size={22} weight="bold" className="text-brand-green" />
+            </div>
+            <h4 className="font-sans text-xl font-black text-white uppercase tracking-tight">Case Breakdown</h4>
           </div>
           <div className="space-y-8">
             {[
-              { label: 'Tactical Unit Alpha', val: 82, color: 'bg-brand-green' },
-              { label: 'Tactical Unit Beta', val: 45, color: 'bg-status-info' },
-              { label: 'Dispatch Center', val: 94, color: 'bg-status-danger' },
-            ].map((unit, idx) => (
-              <div key={idx}>
+              { label: 'Awaiting Dispatch', val: incidents.filter(i => i.status === 'SUBMITTED').length, total: incidents.length, color: 'bg-status-danger' },
+              { label: 'In Progress', val: incidents.filter(i => i.status === 'DISPATCHED' || i.status === 'DISPATCH_HANDLING').length, total: incidents.length, color: 'bg-brand-green' },
+              { label: 'Resolved', val: incidents.filter(i => i.status === 'RESOLVED').length, total: incidents.length, color: 'bg-status-info' },
+            ].map((item) => (
+              <div key={item.label}>
                 <div className="flex justify-between font-bold text-xs uppercase tracking-[0.15em] mb-2">
-                  <span className="text-slate-400">{unit.label}</span>
-                  <span className={`font-black ${unit.val > 90 ? 'text-status-danger' : 'text-brand-green'}`}>{unit.val}%</span>
+                  <span className="text-slate-400">{item.label}</span>
+                  <span className="font-black text-white">{item.val}</span>
                 </div>
                 <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                  <div className={`h-full ${unit.color} rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(136,194,65,0.4)]`} style={{ width: `${unit.val}%` }}></div>
+                  <div
+                    className={`h-full ${item.color} rounded-full transition-all duration-1000`}
+                    style={{ width: item.total > 0 ? `${(item.val / item.total) * 100}%` : '0%' }}
+                  ></div>
                 </div>
               </div>
             ))}
           </div>
-          <button className="w-full mt-10 py-3 border border-white/10 text-white/50 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-white/5 transition-all">
-            Recalibrate Assignments
-          </button>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-8">{incidents.length} total cases forwarded</p>
         </div>
       </div>
 

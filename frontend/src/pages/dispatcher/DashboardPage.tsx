@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { WarningCircle, Broadcast, Truck, Timer, Stack, CornersOut, Plus, Users, CloudCheck, Network, X } from '@phosphor-icons/react';
+import { WarningCircle, Broadcast, Truck, Timer, Stack, CornersOut, Ambulance, CheckCircle, WifiHigh, X } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident } from '../../types/api';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 import { socket } from '../../lib/socket';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
@@ -108,8 +109,8 @@ export default function DashboardPage() {
             <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">
               {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length}
             </span>
-            <span className="text-brand-green font-black text-[9px] flex items-center gap-1 bg-brand-green/5 px-2 py-1 rounded-md">
-              <Plus size={10} weight="bold" /> 2 New
+            <span className="text-brand-green font-black text-[9px] bg-brand-green/5 px-2 py-1 rounded-md uppercase tracking-widest">
+              Live
             </span>
           </div>
         </div>
@@ -142,10 +143,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-white leading-none tracking-tighter shadow-text">6:42</span>
+            <span className="font-sans text-3xl font-black text-white leading-none tracking-tighter">—</span>
             <div className="text-right">
               <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em]">Benchmark</p>
-              <p className="text-xs font-black text-brand-green">7:00</p>
+              <p className="text-xs font-black text-brand-green">8:00</p>
             </div>
           </div>
         </div>
@@ -243,7 +244,10 @@ export default function DashboardPage() {
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
                         <span className="font-sans text-sm font-black text-brand-teal group-hover/row:text-brand-green transition-colors">{incident.caseNumber}</span>
-                        <span className="text-[9px] font-black text-status-danger uppercase tracking-widest mt-0.5">Critical</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${
+                          incident.status === 'SUBMITTED' ? 'text-status-danger' :
+                          incident.status === 'DISPATCH_HANDLING' ? 'text-status-warning' : 'text-status-info'
+                        }`}>{incident.status.replace(/_/g, ' ')}</span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
@@ -254,8 +258,10 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-status-danger animate-pulse"></div>
-                         <span className="font-sans text-xs text-status-danger font-black">00:00</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'bg-status-danger animate-pulse' : 'bg-brand-green'}`}></div>
+                        <span className={`font-sans text-xs font-black ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'text-status-danger' : 'text-brand-teal'}`}>
+                          {formatDistanceToNow(new Date(incident.createdAt))}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -280,33 +286,37 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* Footer Stats / Details */}
+      {/* Footer Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
         <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
           <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <Network size={24} className="text-brand-green" />
+            <Broadcast size={24} className="text-brand-green" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Active Channels</p>
-            <p className="font-sans text-base font-bold text-brand-teal">12 Operational</p>
+            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Cases In Progress</p>
+            <p className="font-sans text-base font-bold text-brand-teal">
+              {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length} active
+            </p>
           </div>
         </div>
         <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
           <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <Users size={24} className="text-brand-green" />
+            <Ambulance size={24} className="text-brand-green" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Staff On-Duty</p>
-            <p className="font-sans text-base font-bold text-brand-teal">45 Personnel</p>
+            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Vehicles Tracked</p>
+            <p className="font-sans text-base font-bold text-brand-teal">{liveVehicles.length} units</p>
           </div>
         </div>
         <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
           <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <CloudCheck size={24} className="text-brand-green" />
+            <WifiHigh size={24} className="text-brand-green" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Comms Integrity</p>
-            <p className="font-sans text-base font-bold text-brand-teal">99.98% Nominal</p>
+            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">GPS Last Update</p>
+            <p className="font-sans text-base font-bold text-brand-teal">
+              {lastUpdatedAt ? formatDistanceToNow(lastUpdatedAt, { addSuffix: true }) : 'Waiting…'}
+            </p>
           </div>
         </div>
       </div>

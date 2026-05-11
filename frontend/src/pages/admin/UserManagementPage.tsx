@@ -7,7 +7,7 @@ import {
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/client';
-import { User, PaginatedResponse, Role } from '../../types/api';
+import { User, Agency, PaginatedResponse, Role } from '../../types/api';
 import AddPersonnelModal from '../../components/shared/AddPersonnelModal';
 
 export default function UserManagementPage() {
@@ -15,16 +15,25 @@ export default function UserManagementPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
+  const [agencyFilter, setAgencyFilter] = useState('ALL');
   const { addNotification } = useNotificationStore();
   
-  // Fetch real users from backend
   const { data: usersResponse, isLoading } = useQuery({
-    queryKey: ['admin', 'users', currentPage, roleFilter],
+    queryKey: ['admin', 'users', currentPage, roleFilter, agencyFilter],
     queryFn: async () => {
       const params: any = { page: currentPage, limit: 10 };
       if (roleFilter !== 'ALL') params.role = roleFilter;
+      if (agencyFilter !== 'ALL') params.agencyId = agencyFilter;
       const res = await api.get<PaginatedResponse<User>>('/admin/users', { params });
       return res.data;
+    },
+  });
+
+  const { data: agencies } = useQuery({
+    queryKey: ['admin', 'agencies'],
+    queryFn: async () => {
+      const res = await api.get('/admin/agencies');
+      return res.data.data as Agency[];
     },
   });
 
@@ -77,30 +86,42 @@ export default function UserManagementPage() {
           <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-2">Total Personnel</div>
           <div className="font-sans text-4xl font-black text-brand-teal leading-none">{meta.total}</div>
           <div className="font-sans text-[10px] font-black text-brand-green mt-4 flex items-center gap-1 uppercase tracking-tighter">
-            <TrendUp size={14} weight="bold" /> +{Math.round(meta.total * 0.01)} RECRUITED THIS MONTH
+            <TrendUp size={14} weight="bold" /> {meta.totalPages} page{meta.totalPages !== 1 ? 's' : ''} of records
           </div>
         </div>
         
         <div className="bg-white border border-surface-border p-6 rounded-xl shadow-sm group hover:border-status-info transition-all">
-          <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-2">Active Duty</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{Math.round(meta.total * 0.35)}</div>
+          <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-2">Active Accounts</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">
+            {users.filter(u => u.isActive).length}
+          </div>
           <div className="flex -space-x-2 mt-4">
-            <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-green flex items-center justify-center text-[9px] text-white font-black shadow-sm">JD</div>
-            <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-teal flex items-center justify-center text-[9px] text-white font-black shadow-sm">ML</div>
-            <div className="w-8 h-8 rounded-full border-2 border-white bg-status-info flex items-center justify-center text-[9px] text-white font-black shadow-sm">KS</div>
-            <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-sidebar flex items-center justify-center text-[9px] text-white font-black shadow-sm">+{Math.max(0, Math.round(meta.total * 0.35) - 3)}</div>
+            {users.filter(u => u.isActive).slice(0, 3).map(u => (
+              <div key={u.id} className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-[9px] text-white font-black shadow-sm ${getColor(u.role)}`}>
+                {getInitials(u.name)}
+              </div>
+            ))}
+            {users.filter(u => u.isActive).length > 3 && (
+              <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-sidebar flex items-center justify-center text-[9px] text-white font-black shadow-sm">
+                +{users.filter(u => u.isActive).length - 3}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="md:col-span-2 bg-brand-sidebar p-6 rounded-xl shadow-2xl flex items-center justify-between border border-brand-teal/30 relative overflow-hidden group">
           <div className="w-full max-w-md relative z-10">
-            <div className="font-sans text-[10px] font-black tracking-[0.2em] text-brand-green uppercase mb-2">Tactical Capacity</div>
+            <div className="font-sans text-[10px] font-black tracking-[0.2em] text-brand-green uppercase mb-2">Account Distribution</div>
             <div className="font-sans text-4xl font-black text-white flex items-end gap-3 leading-none">
-              88% <span className="text-[10px] text-brand-green font-black uppercase tracking-widest mb-1.5 bg-brand-green/10 px-3 py-1 rounded-full border border-brand-green/20">High Load</span>
+              {meta.total} <span className="text-[10px] text-brand-green font-black uppercase tracking-widest mb-1.5 bg-brand-green/10 px-3 py-1 rounded-full border border-brand-green/20">Total</span>
             </div>
             <div className="w-full bg-white/5 h-2.5 rounded-full mt-6 overflow-hidden border border-white/5">
-              <div className="bg-brand-green h-full w-[88%] shadow-[0_0_12px_rgba(136,194,65,0.4)]"></div>
+              <div
+                className="bg-brand-green h-full shadow-[0_0_12px_rgba(136,194,65,0.4)]"
+                style={{ width: meta.total > 0 ? `${(users.filter(u => u.isActive).length / Math.max(users.length, 1)) * 100}%` : '0%' }}
+              ></div>
             </div>
+            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">{users.filter(u => u.isActive).length} of {users.length} on this page active</p>
           </div>
           <div className="hidden md:block opacity-5 group-hover:opacity-10 transition-all scale-150 relative z-0">
             <TrendUp size={80} color="#88c241" weight="fill" />
@@ -137,11 +158,13 @@ export default function UserManagementPage() {
           </div>
           <div className="flex items-center gap-3 flex-1">
             <span className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Agency</span>
-            <select className="flex-1 bg-slate-50 border border-surface-border rounded-lg px-4 py-3 font-sans text-xs font-black uppercase tracking-widest text-brand-teal outline-none focus:ring-2 focus:ring-brand-green transition-all cursor-pointer">
-              <option>All Agencies</option>
-              <option>Fire Dept</option>
-              <option>Police Services</option>
-              <option>Medical Emergency</option>
+            <select
+              value={agencyFilter}
+              onChange={e => { setAgencyFilter(e.target.value); setCurrentPage(1); }}
+              className="flex-1 bg-slate-50 border border-surface-border rounded-lg px-4 py-3 font-sans text-xs font-black uppercase tracking-widest text-brand-teal outline-none focus:ring-2 focus:ring-brand-green transition-all cursor-pointer"
+            >
+              <option value="ALL">All Agencies</option>
+              {agencies?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <button 
@@ -297,14 +320,26 @@ export default function UserManagementPage() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-xl border border-brand-teal/30 bg-brand-sidebar shadow-2xl flex-1 min-h-[250px] group">
-            <div className="absolute inset-0 p-8 flex flex-col justify-end z-10 bg-gradient-to-t from-brand-sidebar via-brand-sidebar/60 to-transparent">
-              <div className="font-sans text-[10px] font-black tracking-[0.2em] text-brand-green uppercase mb-2">Active Theater</div>
-              <div className="font-sans text-2xl font-black text-white uppercase tracking-tight">Operation Silver Shield</div>
-              <p className="font-sans text-xs font-bold text-slate-400 mt-4 leading-relaxed uppercase tracking-wide">34 Personnel currently deployed. Roster modifications restricted by tactical lock.</p>
+          <div className="relative overflow-hidden rounded-xl border border-brand-teal/30 bg-brand-sidebar shadow-2xl flex-1 min-h-[250px] group p-8 flex flex-col justify-between">
+            <div>
+              <div className="font-sans text-[10px] font-black tracking-[0.2em] text-brand-green uppercase mb-2">System Info</div>
+              <div className="font-sans text-2xl font-black text-white uppercase tracking-tight">NMS Operations</div>
+              <p className="font-sans text-xs font-bold text-slate-400 mt-4 leading-relaxed uppercase tracking-wide">
+                {meta.total} registered personnel across {agencies?.length ?? 1} {agencies?.length === 1 ? 'agency' : 'agencies'}.
+              </p>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Active</p>
+                <p className="text-2xl font-black text-brand-green">{users.filter(u => u.isActive).length}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Inactive</p>
+                <p className="text-2xl font-black text-status-danger">{users.filter(u => !u.isActive).length}</p>
+              </div>
             </div>
             <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-all scale-150">
-               <ShieldCheck size={120} weight="fill" className="text-white" />
+              <ShieldCheck size={120} weight="fill" className="text-white" />
             </div>
           </div>
         </div>

@@ -153,7 +153,9 @@ export default function QueuePage() {
                     </td>
                     <td className="px-8 py-5">
                       <p className="text-sm font-bold text-brand-teal">{inc.chiefComplaint}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Clinical Note Available</p>
+                      {(inc.watcherComments || inc.preHospitalManagement) && (
+                        <p className="text-[10px] font-bold text-brand-green uppercase tracking-widest mt-0.5">Notes available</p>
+                      )}
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex flex-col">

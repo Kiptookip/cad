@@ -5,10 +5,11 @@ import api from '../../api/client';
 import { Vehicle } from '../../types/api';
 import { socket } from '../../lib/socket';
 import { formatDistanceToNow } from 'date-fns';
+
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
 import AddVehicleModal from '../../components/shared/AddVehicleModal';
-import { useVehicleTracking } from '../../hooks/useVehicleTracking';
+import { useVehicleTracking, getVehicleTrackingStatus } from '../../hooks/useVehicleTracking';
 
 export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,7 +98,7 @@ export default function FleetPage() {
           <p className="font-sans text-4xl font-black text-brand-teal leading-none">{totalCount}</p>
           <div className="flex items-center gap-1 mt-4 text-brand-green font-black text-[10px] uppercase tracking-tighter">
             <ArrowUpRight size={14} weight="bold" />
-            <span>2 Units Pending Approval</span>
+            <span>{liveVehicles.length} with GPS signal</span>
           </div>
         </div>
         <div className="bg-white p-6 border border-surface-border rounded-xl shadow-sm border-b-4 border-b-brand-green">
@@ -158,10 +159,10 @@ export default function FleetPage() {
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-surface-border">
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Tactical Unit</th>
+                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Vehicle</th>
                 <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Status</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Identifier</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Telemetry (IMEI)</th>
+                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Agency</th>
+                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Speed</th>
                 <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Last Check-in</th>
                 <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Coordinates</th>
                 <th className="px-8 py-5"></th>
@@ -177,21 +178,32 @@ export default function FleetPage() {
                   <tr key={v.id} className="hover:bg-brand-green/5 transition-all group cursor-default">
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
-                        <p className="font-black text-brand-teal text-sm uppercase tracking-tight">UNIT-{v.id.substring(0,4).toUpperCase()}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ALS AMBULANCE</p>
+                        <p className="font-black text-brand-teal text-sm uppercase tracking-tight">{v.registrationNumber}</p>
+                        <p className="text-[10px] font-bold text-slate-400 font-mono">{v.imei}</p>
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-sm border ${
-                        v.status === 'READY' ? 'bg-brand-green/10 text-brand-green border-brand-green/20' :
-                        v.status === 'BUSY' ? 'bg-status-warning/10 text-status-warning border-status-warning/20' :
-                        'bg-status-danger/10 text-status-danger border-status-danger/20'
-                      }`}>
-                        {v.status}
-                      </span>
+                      {(() => {
+                        const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
+                        const s = live ? getVehicleTrackingStatus(live) : (v.isActive ? 'stopped' : 'offline');
+                        const cfg: Record<string, { cls: string; label: string }> = {
+                          moving:      { cls: 'bg-brand-green/10 text-brand-green border-brand-green/20', label: 'Moving' },
+                          stopped:     { cls: 'bg-status-info/10 text-status-info border-status-info/20', label: 'Standby' },
+                          busy:        { cls: 'bg-status-warning/10 text-status-warning border-status-warning/20', label: 'Busy' },
+                          maintenance: { cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Maintenance' },
+                          offline:     { cls: 'bg-status-danger/10 text-status-danger border-status-danger/20', label: 'Offline' },
+                        };
+                        const { cls, label } = cfg[s];
+                        return <span className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-sm border ${cls}`}>{label}</span>;
+                      })()}
                     </td>
-                    <td className="px-8 py-5 text-sm font-bold text-brand-teal">{v.registrationNumber}</td>
-                    <td className="px-8 py-5 text-[11px] font-mono font-bold text-slate-400">{v.imei}</td>
+                    <td className="px-8 py-5 text-sm font-bold text-brand-teal">NMS EOC</td>
+                    <td className="px-8 py-5 text-sm font-bold text-brand-teal">
+                      {(() => {
+                        const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
+                        return live ? `${live.speed} km/h` : '—';
+                      })()}
+                    </td>
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">
                       {(() => {
                         const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
@@ -249,34 +261,53 @@ export default function FleetPage() {
         <div className="lg:col-span-2 bg-white p-8 border border-surface-border rounded-xl shadow-sm">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h3 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Fleet Utilization</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Efficiency Metrics (Last 24 Hours)</p>
+              <h3 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Fleet Status</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current vehicle states from GPS</p>
             </div>
-            <span className="font-sans text-[10px] font-black tracking-widest text-brand-green uppercase bg-brand-green/10 px-4 py-1.5 rounded-full border border-brand-green/20">Active Link</span>
+            {lastUpdatedAt && (
+              <span className="font-sans text-[10px] font-black tracking-widest text-brand-green uppercase bg-brand-green/10 px-4 py-1.5 rounded-full border border-brand-green/20">
+                Updated {formatDistanceToNow(lastUpdatedAt, { addSuffix: true })}
+              </span>
+            )}
           </div>
-          {/* Mock Graph */}
           <div className="h-56 flex items-end gap-3 px-2">
-            {[40, 65, 85, 92, 70, 45, 30, 55, 75, 88].map((h, i) => (
-              <div 
-                key={i}
-                className={`flex-1 ${h > 80 ? 'bg-brand-green' : 'bg-brand-green/30'} hover:scale-y-110 transition-all duration-500 rounded-t-lg cursor-pointer shadow-sm`}
-                style={{ height: `${h}%` }}
-                title={`Utilization: ${h}%`}
-              ></div>
-            ))}
+            {liveVehicles.length > 0 ? liveVehicles.map((v) => {
+              const s = getVehicleTrackingStatus(v);
+              const h = s === 'moving' ? 80 + Math.round(Math.min(v.speed, 120) / 120 * 20)
+                      : s === 'stopped' ? 40
+                      : s === 'busy' ? 65
+                      : 15;
+              const color = s === 'moving' ? 'bg-brand-green' : s === 'stopped' ? 'bg-status-info' : s === 'busy' ? 'bg-status-warning' : 'bg-status-danger/40';
+              return (
+                <div
+                  key={v.vehicleId}
+                  className={`flex-1 ${color} rounded-t-lg shadow-sm transition-all duration-1000`}
+                  style={{ height: `${h}%` }}
+                  title={`${v.registration} — ${s} ${s === 'moving' ? `(${v.speed} km/h)` : ''}`}
+                />
+              );
+            }) : (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                Awaiting GPS data…
+              </div>
+            )}
           </div>
           <div className="flex justify-between mt-8 border-t border-surface-border pt-6">
             <div className="flex gap-8">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Peak Demand</p>
-                <p className="text-xl font-black text-brand-teal leading-none">92%</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Moving</p>
+                <p className="text-xl font-black text-brand-green leading-none">{activeCount}</p>
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Idle</p>
-                <p className="text-xl font-black text-brand-teal leading-none">14%</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Standby</p>
+                <p className="text-xl font-black text-status-info leading-none">{idleCount}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Offline</p>
+                <p className="text-xl font-black text-status-danger leading-none">{offlineCount}</p>
               </div>
             </div>
-            <button className="text-[10px] font-black uppercase tracking-widest text-brand-green hover:underline">Download Detailed CSV</button>
+            <button onClick={exportFleetToCSV} className="text-[10px] font-black uppercase tracking-widest text-brand-green hover:underline">Download CSV</button>
           </div>
         </div>
 

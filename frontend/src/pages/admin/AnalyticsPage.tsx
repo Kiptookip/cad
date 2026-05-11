@@ -1,27 +1,51 @@
-import { ChartLineUp, Clock, Ambulance, Download, MapTrifold, MapPinLine, Warning, ChartPolar } from '@phosphor-icons/react';
+import { Clock, Ambulance, Download, MapPinLine, Warning, ChartPolar } from '@phosphor-icons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/client';
+import { Incident } from '../../types/api';
+import { useVehicleTracking } from '../../hooks/useVehicleTracking';
 
 const responseTimeData = [
   { time: '08:00', avg: 5.2, target: 8.0 },
   { time: '09:00', avg: 4.8, target: 8.0 },
   { time: '10:00', avg: 6.1, target: 8.0 },
   { time: '11:00', avg: 7.4, target: 8.0 },
-  { time: '12:00', avg: 9.2, target: 8.0 }, // Spike during lunch
+  { time: '12:00', avg: 9.2, target: 8.0 },
   { time: '13:00', avg: 6.8, target: 8.0 },
   { time: '14:00', avg: 5.5, target: 8.0 },
 ];
 
-const fleetData = [
-  { sector: 'North', active: 12, idle: 4 },
-  { sector: 'South', active: 8, idle: 6 },
-  { sector: 'East', active: 15, idle: 2 },
-  { sector: 'West', active: 9, idle: 5 },
-  { sector: 'Central', active: 22, idle: 1 },
-];
-
 export default function AnalyticsPage() {
   const { addNotification } = useNotificationStore();
+  const { vehicles: liveVehicles } = useVehicleTracking();
+
+  const { data: incidents } = useQuery({
+    queryKey: ['analytics', 'incidents'],
+    queryFn: async () => {
+      const res = await api.get('/incidents?limit=100');
+      return res.data.data as Incident[];
+    },
+  });
+
+  const totalIncidents = incidents?.length ?? 0;
+  const submittedCount = incidents?.filter(i => i.status === 'SUBMITTED').length ?? 0;
+  const resolvedCount = incidents?.filter(i => i.status === 'RESOLVED').length ?? 0;
+  const fleetUtilization = liveVehicles.length > 0
+    ? Math.round((liveVehicles.filter(v => v.ignition || v.speed > 0).length / liveVehicles.length) * 100)
+    : null;
+
+  const subCountyCounts = incidents?.reduce((acc, i) => {
+    if (!i.subCounty) return acc;
+    acc[i.subCounty] = (acc[i.subCounty] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>) ?? {};
+  const hotZone = Object.entries(subCountyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+
+  const fleetData = Object.entries(subCountyCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([sector, count]) => ({ sector, incidents: count }));
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
@@ -54,11 +78,10 @@ export default function AnalyticsPage() {
               <Clock size={26} weight="fill" className="text-brand-green group-hover:text-inherit" />
             </div>
           </div>
-          <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Avg Response Time</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">5.8<span className="text-sm text-slate-400 ml-1 font-bold">MINS</span></div>
+          <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Total Incidents</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">{totalIncidents}</div>
           <div className="flex items-center gap-1 mt-4">
-             <span className="text-[10px] font-black text-brand-green uppercase tracking-tighter">▼ 1.2M</span>
-             <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest ml-1">VS LAST SHIFT</span>
+            <span className="text-[10px] font-black text-brand-green uppercase tracking-tighter">{resolvedCount} resolved</span>
           </div>
         </div>
 
@@ -69,9 +92,13 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Fleet Utilization</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">84%</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">
+            {fleetUtilization !== null ? `${fleetUtilization}%` : '—'}
+          </div>
           <div className="mt-4 flex gap-1">
-             <span className="px-2 py-0.5 bg-brand-green/10 text-brand-green text-[9px] font-black rounded-md uppercase tracking-widest border border-brand-green/20">OPTIMAL LOAD</span>
+            <span className="px-2 py-0.5 bg-brand-green/10 text-brand-green text-[9px] font-black rounded-md uppercase tracking-widest border border-brand-green/20">
+              {liveVehicles.length} vehicles tracked
+            </span>
           </div>
         </div>
 
@@ -81,9 +108,11 @@ export default function AnalyticsPage() {
               <Warning size={26} weight="fill" className="text-status-danger group-hover:text-inherit" />
             </div>
           </div>
-          <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">High Priority</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">24</div>
-          <div className="mt-4 text-[9px] font-bold text-status-danger uppercase tracking-widest">Immediate Action Required</div>
+          <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Awaiting Dispatch</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none mt-1">{submittedCount}</div>
+          <div className="mt-4 text-[9px] font-bold text-status-danger uppercase tracking-widest">
+            {submittedCount > 0 ? 'Needs attention' : 'Queue clear'}
+          </div>
         </div>
 
         <div className="bg-brand-sidebar p-6 rounded-xl border border-brand-teal/30 shadow-2xl relative overflow-hidden group">
@@ -93,11 +122,11 @@ export default function AnalyticsPage() {
                 <MapPinLine size={26} weight="fill" className="text-brand-green" />
               </div>
             </div>
-            <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Operational Hotzone</div>
-            <div className="font-sans text-4xl font-black text-white leading-none mt-1">CENTRAL</div>
+            <div className="mt-6 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Incident Hotzone</div>
+            <div className="font-sans text-4xl font-black text-white leading-none mt-1 truncate">{hotZone}</div>
             <div className="mt-4 text-[9px] font-bold text-brand-green uppercase tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-ping"></span>
-              92.4 Density Index
+              {subCountyCounts[hotZone] ?? 0} cases logged
             </div>
           </div>
           <div className="absolute -right-8 -bottom-8 opacity-5 group-hover:opacity-10 transition-all scale-125">
@@ -113,7 +142,7 @@ export default function AnalyticsPage() {
         <div className="bg-white p-8 rounded-xl border border-surface-border shadow-sm flex flex-col h-[450px]">
           <div className="mb-8">
             <h3 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Response Performance</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Turnaround Time (TAT) Trend - Realtime</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">TAT trend — sample data (analytics endpoint coming soon)</p>
           </div>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -142,8 +171,8 @@ export default function AnalyticsPage() {
         {/* Fleet Distribution Bar Chart */}
         <div className="bg-white p-8 rounded-xl border border-surface-border shadow-sm flex flex-col h-[450px]">
           <div className="mb-8">
-            <h3 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Geographic Deployment</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Resource allocation by metropolitan sector</p>
+            <h3 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Incidents by Sub-County</h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Top 5 areas by case volume</p>
           </div>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -151,14 +180,12 @@ export default function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="sector" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} dy={15} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} dx={-10} />
-                <RechartsTooltip 
+                <RechartsTooltip
                   cursor={{ fill: '#f8fafb' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', background: '#273236', color: '#fff' }}
                   itemStyle={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase' }}
                 />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '30px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
-                <Bar dataKey="active" name="En-route" stackId="a" fill="#88c241" radius={[0, 0, 6, 6]} barSize={40} />
-                <Bar dataKey="idle" name="Standby" stackId="a" fill="#006973" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="incidents" name="Cases" fill="#88c241" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
