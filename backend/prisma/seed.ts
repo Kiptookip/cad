@@ -159,6 +159,38 @@ async function main() {
   });
   console.log(`✅ Crew created: Driver, EMT, Nurse`);
 
+  // ── 5. Frontend Developer Account ──────────────────────────────────────────
+  const teddyHash = await bcrypt.hash('qwerty@123!', 10);
+  const teddy = await prisma.user.upsert({
+    where: { email: 'teddymurunga56@gmail.com' },
+    update: {},
+    create: {
+      email: 'teddymurunga56@gmail.com',
+      passwordHash: teddyHash,
+      name: 'Teddy Murunga',
+      role: Role.SUPER_ADMIN,
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+  console.log(`✅ Frontend Dev: ${teddy.email}`);
+
+  // ── 6. Joe (AFOSI Admin) ────────────────────────────────────────────────────
+  const joeHash = await bcrypt.hash('joeyflow21', 10);
+  const joe = await prisma.user.upsert({
+    where: { email: 'joe@afosi.org' },
+    update: { passwordHash: joeHash, role: Role.ADMIN, isActive: true },
+    create: {
+      email: 'joe@afosi.org',
+      passwordHash: joeHash,
+      name: 'Joe',
+      role: Role.ADMIN,
+      agencyId: nmsAgency.id,
+      isActive: true,
+    },
+  });
+  console.log(`✅ Admin: ${joe.email}`);
+
   console.log('\n🎉 Seed complete!');
   console.log('─────────────────────────────────────');
   console.log('Super Admin credentials:');
