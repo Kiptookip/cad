@@ -5,25 +5,45 @@ import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircle
 import api from '../../api/client';
 import { Incident, Vehicle, User } from '../../types/api';
 import Map from '../../components/shared/Map';
+import { useNotificationStore } from '../../stores/notificationStore';
 
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addNotification } = useNotificationStore();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [selectedEmtId, setSelectedEmtId] = useState('');
   const [dispatcherComments, setDispatcherComments] = useState('');
+  const [isEditingBrief, setIsEditingBrief] = useState(false);
+  const [editedComplaint, setEditedComplaint] = useState('');
+  const [editedLocation, setEditedLocation] = useState('');
 
   // Fetch Incident
   const { data: incident, isLoading } = useQuery({
     queryKey: ['incident', id],
     queryFn: async () => {
       const res = await api.get(`/incidents/${id}`);
-      return res.data.data as Incident;
+      const data = res.data.data as Incident;
+      setEditedComplaint(data.chiefComplaint);
+      setEditedLocation(data.locationName);
+      return data;
     },
     enabled: !!id,
+  });
+
+  // Update Incident Mutation
+  const updateMutation = useMutation({
+    mutationFn: async (payload: Partial<Incident>) => {
+      return api.patch(`/incidents/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+      setIsEditingBrief(false);
+      addNotification({ type: 'success', title: 'Updated', message: 'Incident details updated successfully.' });
+    }
   });
 
   // Fetch Nearest Vehicles (mock endpoint for now)
@@ -93,12 +113,27 @@ export default function IncidentDetailPage() {
             </span>
           )}
         </div>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 border border-slate-text text-slate-text text-sm font-semibold rounded hover:bg-slate-100 transition-colors flex items-center gap-2">
-            <Printer size={16} /> PRINT LOG
+        <div className="flex gap-4">
+          <button 
+            onClick={() => window.print()}
+            className="group px-6 py-2.5 border-2 border-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-brand-teal hover:text-white hover:border-brand-teal transition-all duration-300 flex items-center gap-3 shadow-sm active:scale-95"
+          >
+            <Printer size={20} weight="bold" className="group-hover:animate-bounce" /> 
+            Print Tactical Log
           </button>
-          <button className="px-4 py-2 border border-status-danger text-status-danger text-sm font-semibold rounded hover:bg-status-danger/10 transition-colors flex items-center gap-2">
-            <ArrowCircleUp size={16} /> ESCALATE
+          <button 
+            onClick={() => {
+              updateMutation.mutate({ massCasualty: true });
+              addNotification({ 
+                type: 'error', 
+                title: 'High-Level Escalation', 
+                message: `Incident ${incident.caseNumber} has been escalated to National Command.` 
+              });
+            }}
+            className="group px-6 py-2.5 border-2 border-status-danger/30 text-status-danger text-xs font-black uppercase tracking-widest rounded-xl hover:bg-status-danger hover:text-white hover:border-status-danger transition-all duration-300 flex items-center gap-3 shadow-lg shadow-status-danger/10 active:scale-95"
+          >
+            <ArrowCircleUp size={20} weight="bold" className="group-hover:scale-125 transition-transform" /> 
+            Escalate Command
           </button>
         </div>
       </div>
@@ -138,26 +173,70 @@ export default function IncidentDetailPage() {
         {/* Left Column: Details */}
         <div className="col-span-12 lg:col-span-7 flex flex-col gap-6">
           
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-surface-border bg-[#eaf5fb] flex justify-between items-center">
-              <h3 className="font-sans text-[20px] font-bold text-brand-teal">Incident Brief</h3>
-              <PencilSimple size={20} className="text-slate-text cursor-pointer hover:text-brand-green" />
-            </div>
-            <div className="p-6 grid grid-cols-2 gap-6">
-              <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">CHIEF COMPLAINT</label>
-                <p className="font-sans text-base text-brand-teal font-bold">{incident.chiefComplaint}</p>
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden transition-all">
+            <div className="px-6 py-4 border-b border-surface-border bg-[#f8fafb] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-5 bg-brand-teal rounded-full"></div>
+                <h3 className="font-sans text-[18px] font-black text-brand-teal uppercase tracking-tight">Incident Brief</h3>
               </div>
-              <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">LOCATION DETAILS</label>
-                <div className="flex items-start gap-2">
-                  <MapPin size={20} weight="fill" className="text-brand-green mt-0.5" />
-                  <p className="font-sans text-sm">{incident.locationName}<br/>{incident.subCounty}</p>
+              {!isEditingBrief ? (
+                <button 
+                  onClick={() => setIsEditingBrief(true)}
+                  className="p-2 hover:bg-brand-teal/10 rounded-lg text-slate-400 hover:text-brand-teal transition-all"
+                >
+                  <PencilSimple size={20} weight="bold" />
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setIsEditingBrief(false)}
+                    className="px-3 py-1 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => updateMutation.mutate({ chiefComplaint: editedComplaint, locationName: editedLocation })}
+                    disabled={updateMutation.isPending}
+                    className="px-4 py-1.5 bg-brand-teal text-white text-[10px] font-black uppercase rounded-lg shadow-md hover:bg-brand-sidebar transition-all disabled:opacity-50"
+                  >
+                    {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  </button>
                 </div>
+              )}
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-8">
+              <div>
+                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">CHIEF COMPLAINT</label>
+                {isEditingBrief ? (
+                  <input 
+                    type="text" 
+                    value={editedComplaint}
+                    onChange={(e) => setEditedComplaint(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg font-sans text-sm font-bold text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                  />
+                ) : (
+                  <p className="font-sans text-base text-brand-teal font-black">{incident.chiefComplaint}</p>
+                )}
               </div>
-              <div className="col-span-2 bg-[#f2fbff] p-4 rounded border border-surface-border">
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">CALLER NOTES</label>
-                <p className="italic text-slate-text text-sm">"{incident.watcherComments || incident.dispatcherComments || 'No specific notes provided.'}"</p>
+              <div>
+                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">LOCATION DETAILS</label>
+                {isEditingBrief ? (
+                  <input 
+                    type="text" 
+                    value={editedLocation}
+                    onChange={(e) => setEditedLocation(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg font-sans text-sm font-bold text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                  />
+                ) : (
+                  <div className="flex items-start gap-2.5">
+                    <MapPin size={20} weight="fill" className="text-brand-green mt-0.5" />
+                    <p className="font-sans text-sm font-bold text-slate-600">{incident.locationName}<br/><span className="text-xs text-slate-400 font-normal uppercase tracking-wider">{incident.subCounty}</span></p>
+                  </div>
+                )}
+              </div>
+              <div className="col-span-2 bg-slate-50 p-5 rounded-xl border border-slate-100 border-dashed">
+                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">CALLER NOTES</label>
+                <p className="italic text-slate-500 text-sm leading-relaxed">"{incident.watcherComments || incident.dispatcherComments || 'No specific notes provided.'}"</p>
               </div>
             </div>
           </div>

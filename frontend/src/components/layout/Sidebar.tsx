@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Dashboard', path: '/dispatcher/dashboard', icon: SquaresFour, roles: ['SUPER_ADMIN', 'ADMIN', 'DISPATCHER'] },
+    { label: 'Dashboard', path: '/dashboard', icon: SquaresFour, roles: ['SUPER_ADMIN', 'ADMIN', 'DISPATCHER'] },
     { label: 'Incident Feed', path: '/queue', icon: ListBullets, roles: ['SUPER_ADMIN', 'ADMIN', 'DISPATCHER'] },
     { label: 'Fleet Management', path: '/fleet', icon: MapTrifold, roles: ['SUPER_ADMIN', 'ADMIN', 'DISPATCHER'] },
     { label: 'Personnel', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },

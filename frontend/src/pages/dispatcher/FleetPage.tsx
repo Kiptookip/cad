@@ -7,9 +7,11 @@ import { socket } from '../../lib/socket';
 import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
+import AddVehicleModal from '../../components/shared/AddVehicleModal';
 
 export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
 
@@ -59,6 +61,33 @@ export default function FleetPage() {
       type: 'vehicle' as const
     }));
 
+  const exportFleetToCSV = () => {
+    if (!vehicles || vehicles.length === 0) return;
+    
+    const headers = ['Unit ID', 'Registration', 'Status', 'IMEI', 'Last Check-in', 'Coordinates'];
+    const rows = filteredVehicles.map(v => [
+      `UNIT-${v.id.substring(0,4).toUpperCase()}`,
+      v.registrationNumber,
+      v.status,
+      v.imei,
+      v.updatedAt ? new Date(v.updatedAt).toLocaleString() : 'N/A',
+      v.lastLat && v.lastLong ? `${v.lastLat}, ${v.lastLong}` : 'SIGNAL LOST'
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Fleet_Deployment_Roster_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    addNotification({ type: 'success', title: 'Export Complete', message: 'Deployment roster has been downloaded.' });
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
       {/* Header */}
@@ -71,8 +100,8 @@ export default function FleetPage() {
           <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-black text-brand-teal tracking-tight uppercase">Fleet Status</h2>
         </div>
         <button 
-          onClick={() => addNotification({ type: 'success', title: 'Wizard Launched', message: 'Add Vehicle wizard is ready.' })}
-          className="bg-brand-green hover:bg-brand-sidebar hover:text-white text-brand-teal font-black text-xs uppercase tracking-widest px-8 py-4 rounded-xl flex items-center gap-3 transition-all shadow-md active:scale-95"
+          onClick={() => setIsModalOpen(true)}
+          className="bg-brand-green hover:bg-brand-sidebar hover:text-white text-brand-sidebar font-black text-xs uppercase tracking-widest px-8 py-4 rounded-xl flex items-center gap-3 transition-all shadow-md active:scale-95"
         >
           <PlusCircle size={22} weight="bold" />
           Register Unit
@@ -135,7 +164,7 @@ export default function FleetPage() {
               <Funnel size={22} weight="bold" />
             </button>
             <button 
-              onClick={() => addNotification({ type: 'success', title: 'Exporting...', message: 'Fleet report is downloading.' })}
+              onClick={exportFleetToCSV}
               className="p-3 hover:bg-brand-teal hover:text-white rounded-xl text-slate-500 transition-all shadow-sm border border-surface-border"
             >
               <Download size={22} weight="bold" />
@@ -265,6 +294,11 @@ export default function FleetPage() {
           </button>
         </div>
       </div>
+      
+      <AddVehicleModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </div>
   );
 }

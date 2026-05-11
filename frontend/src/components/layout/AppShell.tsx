@@ -12,10 +12,9 @@ export default function AppShell() {
   const token = useAuthStore((s) => s.token);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Redirect to login if not authenticated
-  if (!token) return <Navigate to="/login" replace />;
-
   useEffect(() => {
+    if (!token) return;
+
     socket.connect();
 
     socket.on('incident:new', (data) => {
@@ -38,7 +37,10 @@ export default function AppShell() {
       socket.off('incident:new');
       socket.off('fleet:offline');
     };
-  }, [addNotification]);
+  }, [addNotification, token]);
+
+  // Redirect to login if not authenticated - MUST BE AFTER ALL HOOKS
+  if (!token) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex min-h-screen bg-surface-page font-sans text-slate-text">

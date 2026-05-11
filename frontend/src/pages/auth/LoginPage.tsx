@@ -30,8 +30,8 @@ export default function LoginPage() {
     setServerError('');
     try {
       // ── MOCK BYPASS (comment out to use real backend) ──────────────────────
-      let role = 'WATCHER';
-      if (data.email.includes('admin')) role = 'ADMIN';
+      let role = 'ADMIN';
+      if (data.email.includes('watcher')) role = 'WATCHER';
       else if (data.email.includes('dispatcher')) role = 'DISPATCHER';
       else if (data.email.includes('partner')) role = 'PARTNER';
 
@@ -55,7 +55,7 @@ export default function LoginPage() {
       // ────────────────────────────────────────────────────────────────────────
 
       if (['SUPER_ADMIN', 'ADMIN'].includes(role)) navigate('/admin/users');
-      else if (role === 'DISPATCHER') navigate('/dispatcher/dashboard');
+      else if (role === 'DISPATCHER') navigate('/dashboard');
       else if (role === 'WATCHER') navigate('/watcher/new-incident');
       else if (role === 'PARTNER') navigate('/partner/dashboard');
       else navigate('/unauthorized');

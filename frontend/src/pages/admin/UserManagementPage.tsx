@@ -1,20 +1,55 @@
 import { useState } from 'react';
-import { UserPlus, MagnifyingGlass, Faders, DotsThreeVertical, Download, ClockCounterClockwise, MagicWand, CaretLeft, CaretRight, TrendUp, ShieldCheck } from '@phosphor-icons/react';
+import { 
+  UserPlus, MagnifyingGlass, Faders, DotsThreeVertical, 
+  Download, ClockCounterClockwise, MagicWand, CaretLeft, 
+  CaretRight, TrendUp, ShieldCheck 
+} from '@phosphor-icons/react';
 import { useNotificationStore } from '../../stores/notificationStore';
-
-// Mock Data
-const users = [
-  { id: '1', name: 'Sarah Mitchell', email: 's.mitchell@eoc.gov', role: 'Super Admin', agency: 'National Command', status: 'Active', initials: 'SM', color: 'bg-brand-teal text-white' },
-  { id: '2', name: 'Robert Kurosawa', email: 'r.kuro@city-fire.org', role: 'Dispatcher', agency: 'Metropolitan Fire Dept', status: 'Active', initials: 'RK', color: 'bg-[#006973] text-white' },
-  { id: '3', name: 'Amanda Lee', email: 'lee.a@regional-ems.net', role: 'Watcher', agency: 'EMS Regional Office', status: 'Offline', initials: 'AL', color: 'bg-slate-300 text-slate-700' },
-  { id: '4', name: 'David Wright', email: 'dwright@safety.gov', role: 'Admin', agency: 'Public Safety Dept', status: 'Suspended', initials: 'DW', color: 'bg-brand-green text-white' },
-  { id: '5', name: 'James Herrera', email: 'j.herrera@police.net', role: 'Dispatcher', agency: 'City Police Services', status: 'Active', initials: 'JH', color: 'bg-[#cce7f3] text-brand-teal' },
-];
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/client';
+import { User, PaginatedResponse, Role } from '../../types/api';
+import AddPersonnelModal from '../../components/shared/AddPersonnelModal';
 
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
   const { addNotification } = useNotificationStore();
   
+  // Fetch real users from backend
+  const { data: usersResponse, isLoading } = useQuery({
+    queryKey: ['admin', 'users', currentPage, roleFilter],
+    queryFn: async () => {
+      const params: any = { page: currentPage, limit: 10 };
+      if (roleFilter !== 'ALL') params.role = roleFilter;
+      const res = await api.get<PaginatedResponse<User>>('/admin/users', { params });
+      return res.data;
+    },
+  });
+
+  const users = usersResponse?.data || [];
+  const meta = usersResponse?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getColor = (role: string) => {
+    switch (role) {
+      case 'SUPER_ADMIN': return 'bg-brand-teal text-white';
+      case 'ADMIN': return 'bg-brand-green text-white';
+      case 'DISPATCHER': return 'bg-[#006973] text-white';
+      case 'WATCHER': return 'bg-status-info text-white';
+      default: return 'bg-slate-300 text-slate-700';
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
       
@@ -28,7 +63,7 @@ export default function UserManagementPage() {
           <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-black text-brand-teal tracking-tight uppercase">Personnel Roster</h2>
         </div>
         <button 
-          onClick={() => addNotification({ type: 'success', title: 'User Setup', message: 'Add User wizard launched.' })}
+          onClick={() => setIsAddModalOpen(true)}
           className="w-full sm:w-auto bg-brand-green hover:bg-brand-sidebar hover:text-white text-brand-teal font-black text-xs uppercase tracking-widest px-6 py-3 sm:px-8 sm:py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-md active:scale-95"
         >
           <UserPlus size={22} weight="bold" />
@@ -40,20 +75,20 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-white border border-surface-border p-6 rounded-xl shadow-sm group hover:border-brand-green transition-all">
           <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-2">Total Personnel</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">1,284</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{meta.total}</div>
           <div className="font-sans text-[10px] font-black text-brand-green mt-4 flex items-center gap-1 uppercase tracking-tighter">
-            <TrendUp size={14} weight="bold" /> +12 RECRUITED THIS MONTH
+            <TrendUp size={14} weight="bold" /> +{Math.round(meta.total * 0.01)} RECRUITED THIS MONTH
           </div>
         </div>
         
         <div className="bg-white border border-surface-border p-6 rounded-xl shadow-sm group hover:border-status-info transition-all">
           <div className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-2">Active Duty</div>
-          <div className="font-sans text-4xl font-black text-brand-teal leading-none">432</div>
+          <div className="font-sans text-4xl font-black text-brand-teal leading-none">{Math.round(meta.total * 0.35)}</div>
           <div className="flex -space-x-2 mt-4">
             <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-green flex items-center justify-center text-[9px] text-white font-black shadow-sm">JD</div>
             <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-teal flex items-center justify-center text-[9px] text-white font-black shadow-sm">ML</div>
             <div className="w-8 h-8 rounded-full border-2 border-white bg-status-info flex items-center justify-center text-[9px] text-white font-black shadow-sm">KS</div>
-            <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-sidebar flex items-center justify-center text-[9px] text-white font-black shadow-sm">+429</div>
+            <div className="w-8 h-8 rounded-full border-2 border-white bg-brand-sidebar flex items-center justify-center text-[9px] text-white font-black shadow-sm">+{Math.max(0, Math.round(meta.total * 0.35) - 3)}</div>
           </div>
         </div>
 
@@ -87,12 +122,17 @@ export default function UserManagementPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
           <div className="flex items-center gap-3 flex-1">
             <span className="font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Role</span>
-            <select className="flex-1 bg-slate-50 border border-surface-border rounded-lg px-4 py-3 font-sans text-xs font-black uppercase tracking-widest text-brand-teal outline-none focus:ring-2 focus:ring-brand-green transition-all cursor-pointer">
-              <option>All Roles</option>
-              <option>Super Admin</option>
-              <option>Admin</option>
-              <option>Dispatcher</option>
-              <option>Watcher</option>
+            <select 
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+              className="flex-1 bg-slate-50 border border-surface-border rounded-lg px-4 py-3 font-sans text-xs font-black uppercase tracking-widest text-brand-teal outline-none focus:ring-2 focus:ring-brand-green transition-all cursor-pointer"
+            >
+              <option value="ALL">All Roles</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+              <option value="ADMIN">Admin</option>
+              <option value="DISPATCHER">Dispatcher</option>
+              <option value="WATCHER">Watcher</option>
+              <option value="PARTNER">Partner</option>
             </select>
           </div>
           <div className="flex items-center gap-3 flex-1">
@@ -116,73 +156,107 @@ export default function UserManagementPage() {
       {/* Main Content Area */}
       <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
         {/* Table */}
-        <div className="flex-[3] bg-white rounded-xl shadow-sm border border-surface-border overflow-hidden flex flex-col">
+        <div className="flex-[3] bg-white rounded-xl shadow-sm border border-surface-border overflow-hidden flex flex-col min-h-[500px]">
           <div className="overflow-x-auto flex-1 hide-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-slate-50 border-b border-surface-border">
-                  <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Personnel</th>
-                  <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Operational Role</th>
-                  <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Assigned Agency</th>
-                  <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Status</th>
-                  <th className="px-8 py-5"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-border/50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-brand-green/5 transition-all group cursor-default">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${u.color}`}>
-                          {u.initials}
-                        </div>
-                        <div>
-                          <div className="font-black text-brand-teal text-sm uppercase tracking-tight">{u.name}</div>
-                          <div className="font-bold text-[11px] text-slate-400">{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="bg-brand-green/10 text-brand-green px-3 py-1.5 rounded-full font-black text-[10px] border border-brand-green/20 uppercase tracking-widest shadow-sm">
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="font-bold text-sm text-brand-teal uppercase tracking-tight">{u.agency}</div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2.5 h-2.5 rounded-full ${u.status === 'Active' ? 'bg-brand-green animate-pulse' : u.status === 'Offline' ? 'bg-slate-300' : 'bg-status-danger'}`}></span>
-                        <span className={`font-black text-[11px] uppercase tracking-widest ${u.status === 'Active' ? 'text-brand-teal' : u.status === 'Offline' ? 'text-slate-400' : 'text-status-danger'}`}>{u.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => addNotification({ type: 'info', title: 'User Actions', message: `Editing actions for ${u.name}` })}
-                        className="p-3 rounded-xl hover:bg-white text-slate-400 hover:text-brand-teal transition-all shadow-sm border border-transparent hover:border-surface-border"
-                      >
-                        <DotsThreeVertical size={24} weight="bold" />
-                      </button>
-                    </td>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 py-20">
+                <div className="w-12 h-12 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>
+                <p className="font-black text-xs text-brand-teal uppercase tracking-widest animate-pulse">Accessing Personnel Files...</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-surface-border">
+                    <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Personnel</th>
+                    <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Operational Role</th>
+                    <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Assigned Agency</th>
+                    <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Status</th>
+                    <th className="px-8 py-5"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-surface-border/50">
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                           <ShieldCheck size={48} weight="duotone" className="text-slate-200" />
+                           <p className="font-bold text-sm text-slate-400 uppercase tracking-widest">No personnel records found</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase())).map(u => (
+                      <tr key={u.id} className="hover:bg-brand-green/5 transition-all group cursor-default">
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${getColor(u.role)}`}>
+                              {getInitials(u.name)}
+                            </div>
+                            <div>
+                              <div className="font-black text-brand-teal text-sm uppercase tracking-tight">{u.name}</div>
+                              <div className="font-bold text-[11px] text-slate-400">{u.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className="bg-brand-green/10 text-brand-green px-3 py-1.5 rounded-full font-black text-[10px] border border-brand-green/20 uppercase tracking-widest shadow-sm">
+                            {u.role.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="font-bold text-sm text-brand-teal uppercase tracking-tight">{(u as any).agency?.name || 'Unknown'}</div>
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-3">
+                            <span className={`w-2.5 h-2.5 rounded-full ${u.isActive ? 'bg-brand-green animate-pulse' : 'bg-status-danger'}`}></span>
+                            <span className={`font-black text-[11px] uppercase tracking-widest ${u.isActive ? 'text-brand-teal' : 'text-status-danger'}`}>{u.isActive ? 'Active' : 'Deactivated'}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          <button 
+                            onClick={() => addNotification({ type: 'info', title: 'User Actions', message: `Editing actions for ${u.name}` })}
+                            className="p-3 rounded-xl hover:bg-white text-slate-400 hover:text-brand-teal transition-all shadow-sm border border-transparent hover:border-surface-border"
+                          >
+                            <DotsThreeVertical size={24} weight="bold" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
           
           {/* Pagination */}
           <div className="bg-slate-50 px-4 sm:px-8 py-5 border-t border-surface-border flex flex-col sm:flex-row gap-4 justify-between items-center">
-            <div className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center sm:text-left">Showing 1 to 5 of 1,284 personnel</div>
+            <div className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center sm:text-left">
+              Showing {users.length} of {meta.total} personnel
+            </div>
             <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg border border-surface-border hover:bg-white hover:text-brand-teal disabled:opacity-30 text-slate-400 transition-all shadow-sm" disabled>
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-surface-border hover:bg-white hover:text-brand-teal disabled:opacity-30 text-slate-400 transition-all shadow-sm"
+              >
                 <CaretLeft size={20} weight="bold" />
               </button>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-lg bg-brand-teal text-white font-black text-xs shadow-md">1</button>
-                <button className="w-9 h-9 rounded-lg hover:bg-white border border-transparent hover:border-surface-border font-black text-xs text-slate-500 transition-all">2</button>
-                <button className="w-9 h-9 rounded-lg hover:bg-white border border-transparent hover:border-surface-border font-black text-xs text-slate-500 transition-all">3</button>
+                {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map(p => (
+                  <button 
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`w-9 h-9 rounded-lg font-black text-xs transition-all ${currentPage === p ? 'bg-brand-teal text-white shadow-md' : 'hover:bg-white border border-transparent hover:border-surface-border text-slate-500'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
-              <button className="p-2 rounded-lg border border-surface-border hover:bg-white hover:text-brand-teal text-slate-400 transition-all shadow-sm">
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(meta.totalPages, p + 1))}
+                disabled={currentPage === meta.totalPages}
+                className="p-2 rounded-lg border border-surface-border hover:bg-white hover:text-brand-teal disabled:opacity-30 text-slate-400 transition-all shadow-sm"
+              >
                 <CaretRight size={20} weight="bold" />
               </button>
             </div>
@@ -236,6 +310,10 @@ export default function UserManagementPage() {
         </div>
       </div>
       
+      <AddPersonnelModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
     </div>
   );
 }

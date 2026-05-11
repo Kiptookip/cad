@@ -47,6 +47,24 @@ export default function NewIncidentWizard() {
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
+  const [isSearching, setIsSearching] = useState(false);
+
+  const searchLocation = async () => {
+    if (!formData.locationName) return;
+    setIsSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.locationName + ', Nairobi, Kenya')}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        updateForm({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+      }
+    } catch (err) {
+      console.error("Geocoding failed", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const createIncident = useMutation({
     mutationFn: async () => {
       // POST /incidents
@@ -158,13 +176,24 @@ export default function NewIncidentWizard() {
                 
                 <div>
                   <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase mb-2 block">LOCATION NAME / LANDMARK</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Grand Central Station, Platform 4B" 
-                    className="w-full h-11 px-4 border border-surface-border rounded-lg text-sm focus:ring-2 focus:ring-brand-green outline-none"
-                    value={formData.locationName}
-                    onChange={e => updateForm({ locationName: e.target.value })}
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Grand Central Station, Platform 4B" 
+                      className="flex-1 h-11 px-4 border border-surface-border rounded-lg text-sm focus:ring-2 focus:ring-brand-green outline-none"
+                      value={formData.locationName}
+                      onChange={e => updateForm({ locationName: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchLocation(); } }}
+                    />
+                    <button
+                      type="button"
+                      onClick={searchLocation}
+                      disabled={isSearching || !formData.locationName}
+                      className="px-4 h-11 bg-slate-100 hover:bg-slate-200 text-slate-text font-bold rounded-lg transition-colors text-sm disabled:opacity-50"
+                    >
+                      {isSearching ? '...' : 'Search'}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase mb-2 block">SUB-COUNTY</label>
@@ -173,11 +202,24 @@ export default function NewIncidentWizard() {
                     value={formData.subCounty}
                     onChange={e => updateForm({ subCounty: e.target.value })}
                   >
-                    <option>Select region...</option>
-                    <option>Westlands</option>
-                    <option>Dagoretti</option>
-                    <option>Kasarani</option>
-                    <option>Embakasi</option>
+                    <option value="">Select region...</option>
+                    <option value="Dagoretti North">Dagoretti North</option>
+                    <option value="Dagoretti South">Dagoretti South</option>
+                    <option value="Embakasi Central">Embakasi Central</option>
+                    <option value="Embakasi East">Embakasi East</option>
+                    <option value="Embakasi North">Embakasi North</option>
+                    <option value="Embakasi South">Embakasi South</option>
+                    <option value="Embakasi West">Embakasi West</option>
+                    <option value="Kamukunji">Kamukunji</option>
+                    <option value="Kasarani">Kasarani</option>
+                    <option value="Kibra">Kibra</option>
+                    <option value="Lang'ata">Lang'ata</option>
+                    <option value="Makadara">Makadara</option>
+                    <option value="Mathare">Mathare</option>
+                    <option value="Roysambu">Roysambu</option>
+                    <option value="Ruaraka">Ruaraka</option>
+                    <option value="Starehe">Starehe</option>
+                    <option value="Westlands">Westlands</option>
                   </select>
                 </div>
               </div>
@@ -367,7 +409,12 @@ export default function NewIncidentWizard() {
           </div>
           
           <div className="flex-1 relative rounded-lg overflow-hidden border border-surface-border bg-slate-200 min-h-[200px]">
-            <Map center={[formData.lat, formData.lng]} zoom={13} className="h-full w-full opacity-80 mix-blend-multiply" />
+            <Map 
+              center={[formData.lat, formData.lng]} 
+              zoom={15} 
+              markers={[{ id: 'scene', lat: formData.lat, lng: formData.lng, title: formData.locationName || 'Emergency Scene', type: 'incident' }]}
+              className="h-full w-full opacity-80 mix-blend-multiply" 
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex flex-col justify-end p-4 pointer-events-none">
               <p className="text-white font-bold font-sans text-sm">{formData.subCounty} Region</p>
               <p className="text-white/80 font-sans text-xs">Awaiting dispatch</p>
