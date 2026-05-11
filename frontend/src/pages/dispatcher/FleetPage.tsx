@@ -193,12 +193,23 @@ export default function FleetPage() {
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">{v.registrationNumber}</td>
                     <td className="px-8 py-5 text-[11px] font-mono font-bold text-slate-400">{v.imei}</td>
                     <td className="px-8 py-5 text-sm font-bold text-brand-teal">
-                      {v.lastLocationAt ? formatDistanceToNow(new Date(v.lastLocationAt), { addSuffix: true }) : 'N/A'}
+                      {(() => {
+                        const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
+                        const ts = live?.timestamp ?? v.lastLocationAt;
+                        return ts ? formatDistanceToNow(new Date(ts), { addSuffix: true }) : 'N/A';
+                      })()}
                     </td>
                     <td className="px-8 py-5">
-                      <div className="bg-slate-100 px-3 py-1 rounded text-[10px] font-mono font-bold text-slate-500 inline-block border border-surface-border/50">
-                        {v.lastLat && v.lastLng ? `${v.lastLat.toFixed(4)}, ${v.lastLng.toFixed(4)}` : 'SIGNAL LOST'}
-                      </div>
+                      {(() => {
+                        const live = liveVehicles.find(lv => lv.registration === v.registrationNumber);
+                        const lat = live?.lat ?? v.lastLat;
+                        const lng = live?.lng ?? v.lastLng;
+                        return (
+                          <div className={`px-3 py-1 rounded text-[10px] font-mono font-bold inline-block border ${lat && lng ? 'bg-brand-green/10 text-brand-green border-brand-green/20' : 'bg-slate-100 text-slate-500 border-surface-border/50'}`}>
+                            {lat && lng ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'SIGNAL LOST'}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center justify-end gap-2">
