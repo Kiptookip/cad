@@ -45,25 +45,25 @@ const schema = {
       type: 'string',
       default: 'redis://localhost:6379',
     },
-    KIMII_BASE_URL: {
+    UFFIZIO_BASE_URL: {
       type: 'string',
-      default: 'https://gps.kimiitelematics.com',
+      default: 'http://13.245.46.90',
     },
-    KIMII_USERNAME: {
-      type: 'string',
-      default: '',
-    },
-    KIMII_PASSWORD: {
+    UFFIZIO_USERNAME: {
       type: 'string',
       default: '',
     },
-    KIMII_PROJECT_ID: {
+    UFFIZIO_PASSWORD: {
+      type: 'string',
+      default: '',
+    },
+    UFFIZIO_PROJECT_ID: {
       type: 'string',
       default: '49',
     },
-    KIMII_USER_ID: {
+    UFFIZIO_COMPANY: {
       type: 'string',
-      default: '82629',
+      default: 'Nairobi Emergency Operation Center',
     },
   },
 };
@@ -84,11 +84,11 @@ declare module 'fastify' {
       JWT_SECRET: string;
       JWT_EXPIRES_IN: string;
       REDIS_URL: string;
-      KIMII_BASE_URL: string;
-      KIMII_USERNAME: string;
-      KIMII_PASSWORD: string;
-      KIMII_PROJECT_ID: string;
-      KIMII_USER_ID: string;
+      UFFIZIO_BASE_URL: string;
+      UFFIZIO_USERNAME: string;
+      UFFIZIO_PASSWORD: string;
+      UFFIZIO_PROJECT_ID: string;
+      UFFIZIO_COMPANY: string;
     };
   }
 }

@@ -2,29 +2,20 @@ import { FastifyInstance } from 'fastify';
 import { Role } from '../../shared/types/index.js';
 
 /**
- * KimiiTrack GPS Tracking Service
+ * Uffizio Pull API — GPS Tracking Service
  *
- * Platform: Uffizio (salivetracking.uffizio.com microservice)
- * Auth:     Short-lived Bearer JWT — obtained by POSTing credentials to
- *           the Kimiitrack session endpoint (expires every 30 minutes).
+ * Auth flow:
+ *   1. POST /webservice?token=generateAccessToken  → receive auth-code
+ *   2. POST /webservice?token=getTokenBaseLiveData&ProjectId=49
+ *      Header: auth-code: <code>
+ *      Body:   { company_names, vehicle_nos, imei_nos, format }
  *
- * TODO: The following values need to be filled in once Kimiitrack shares credentials:
- *   - KIMII_BASE_URL  (gps.kimiitelematics.com)
- *   - KIMII_USERNAME  (account login email)
- *   - KIMII_PASSWORD  (account login password)
- *   - KIMII_PROJECT_ID (49 — confirmed from browser inspection)
- *   - KIMII_USER_ID    (82629 — confirmed from browser inspection)
- *
- * Known vehicle IDs (Uffizio internal IDs, confirmed):
- *   260696, 260739, 260740, 260741, 260742, 260743, 260744, 260746, 260747, 260748
- *
- * Microservice endpoint (confirmed):
- *   POST https://salivetracking.uffizio.com/LiveTrackingDashBoardMicroService/api/livetracking
- *   Body: { callFor: "liveData", projectId: "49", vehicleDataId: ?, allWidgetIds: ? }
- *   Auth: Authorization: Bearer {jwt}
- *
- * PENDING: vehicleDataId and allWidgetIds exact format still needs to be confirmed.
- *          Reach out to Kimiitrack/Uffizio support for the correct values.
+ * Credentials configured via .env:
+ *   UFFIZIO_BASE_URL  = http://13.245.46.90
+ *   UFFIZIO_USERNAME  = nccg@brighton.co.ke
+ *   UFFIZIO_PASSWORD  = Vision@123!!
+ *   UFFIZIO_PROJECT_ID = 49
+ *   UFFIZIO_COMPANY   = Nairobi Emergency Operation Center
  */
 
 interface VehicleLocation {
@@ -41,172 +32,242 @@ interface VehicleLocation {
   isActive: boolean;
 }
 
+const POLL_INTERVAL_MS = 30_000;
+// Refresh the auth code 5 min before we assume it expires (default: 23h)
+const TOKEN_TTL_MS = 23 * 60 * 60 * 1000;
+
 export class TrackingService {
-  private bearerToken: string | null = null;
-  private tokenExpiry: number = 0;
+  private authCode: string | null = null;
+  private authCodeExpiry: number = 0;
   private pollingInterval: ReturnType<typeof setInterval> | null = null;
 
   private readonly baseUrl: string;
-  private readonly microserviceUrl = 'https://salivetracking.uffizio.com/LiveTrackingDashBoardMicroService/api/livetracking';
+  private readonly username: string;
+  private readonly password: string;
   private readonly projectId: string;
-  private readonly userId: string;
+  private readonly companyName: string;
 
   constructor(private app: FastifyInstance) {
-    this.baseUrl = app.config.KIMII_BASE_URL ?? '';
-    this.projectId = app.config.KIMII_PROJECT_ID ?? '49';
-    this.userId = app.config.KIMII_USER_ID ?? '82629';
+    this.baseUrl = (app.config.UFFIZIO_BASE_URL ?? '').replace(/\/$/, '');
+    this.username = app.config.UFFIZIO_USERNAME ?? '';
+    this.password = app.config.UFFIZIO_PASSWORD ?? '';
+    this.projectId = app.config.UFFIZIO_PROJECT_ID ?? '49';
+    this.companyName = app.config.UFFIZIO_COMPANY ?? 'Nairobi Emergency Operation Center';
   }
 
-  /**
-   * Authenticates with Kimiitrack and returns a Bearer token.
-   * Tokens expire in ~30 minutes so this re-authenticates automatically.
-   *
-   * TODO: Confirm the login endpoint path with Kimiitrack support.
-   */
-  private async getBearerToken(): Promise<string> {
-    if (this.bearerToken && Date.now() < this.tokenExpiry - 60_000) {
-      return this.bearerToken;
+  // ── Token management ──────────────────────────────────────────────────────
+
+  private async getAuthCode(): Promise<string> {
+    if (this.authCode && Date.now() < this.authCodeExpiry) {
+      return this.authCode;
     }
 
-    // TODO: Replace with actual login endpoint once confirmed
-    const response = await fetch(`${this.baseUrl}/GenerateJSON?`, {
+    const url = `${this.baseUrl}/webservice?token=generateAccessToken`;
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-requested-with': 'XMLHttpRequest' },
-      body: new URLSearchParams({
-        javaclassmethodname: 'userLogin',
-        javaclassname: 'com.uffizio.tools.projectmanager.GenerateJSONAjax',
-        username: this.app.config.KIMII_USERNAME ?? '',
-        password: this.app.config.KIMII_PASSWORD ?? '',
-      }).toString(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: this.username, password: this.password }),
     });
 
-    const data: any = await response.json();
-
-    if (!data?.token) {
-      throw new Error('Kimiitrack authentication failed — check KIMII_USERNAME and KIMII_PASSWORD');
+    if (!res.ok) {
+      throw new Error(`Uffizio auth failed: HTTP ${res.status}`);
     }
 
-    this.bearerToken = data.token;
-    // Tokens last 30 minutes (1800s)
-    this.tokenExpiry = Date.now() + 1_800_000;
-    return this.bearerToken!;
+    const body: any = await res.json();
+
+    // Confirmed response: { result: 1, data: { token: "..." }, message: "" }
+    const code = body?.data?.token ?? body?.auth_code ?? body?.token;
+
+    if (!code) {
+      this.app.log.error({ body }, 'Uffizio: unexpected auth response — could not extract auth code');
+      throw new Error('Uffizio: auth code not found in response');
+    }
+
+    this.authCode = code;
+    this.authCodeExpiry = Date.now() + TOKEN_TTL_MS;
+    this.app.log.info('Uffizio: auth code refreshed');
+    return this.authCode!;
   }
 
-  /**
-   * Fetches live GPS data for all vehicles and updates Redis cache.
-   * Called every 60 seconds by the polling worker.
-   *
-   * TODO: Confirm vehicleDataId and allWidgetIds values with Kimiitrack support.
-   */
-  async fetchAndCacheLocations(): Promise<void> {
-    const token = await this.getBearerToken();
+  // ── Live data fetch ───────────────────────────────────────────────────────
 
-    const response = await fetch(this.microserviceUrl, {
+  async fetchAndUpdateLocations(): Promise<void> {
+    const code = await this.getAuthCode();
+
+    const url = `${this.baseUrl}/webservice?token=getTokenBaseLiveData&ProjectId=${this.projectId}`;
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'auth-code': code,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        callFor: 'liveData',
-        projectId: this.projectId,
-        // TODO: Replace these with correct values from Kimiitrack support
-        vehicleDataId: null,
-        allWidgetIds: null,
-        filterObject: {
-          userId: this.userId,
-          vehicleRights: '260696,260739,260740,260741,260742,260743,260744,260746,260747,260748',
-        },
+        company_names: this.companyName,
+        vehicle_nos: '',
+        imei_nos: '',
+        format: 'json',
       }),
     });
 
-    const data: any = await response.json();
+    if (res.status === 401) {
+      // Auth code expired early — force refresh next call
+      this.authCode = null;
+      throw new Error('Uffizio: auth code rejected (401) — will refresh on next poll');
+    }
 
-    if (!data?.data) {
-      this.app.log.warn('Kimiitrack: no vehicle data in response');
+    if (!res.ok) {
+      throw new Error(`Uffizio live data failed: HTTP ${res.status}`);
+    }
+
+    const body: any = await res.json();
+
+    // Log the raw structure once (first successful fetch) for field-mapping verification
+    if (!this._loggedStructure) {
+      this._loggedStructure = true;
+      this.app.log.info({ sample: JSON.stringify(body).slice(0, 800) }, 'Uffizio: raw response sample');
+    }
+
+    const rawVehicles = this.extractVehicleArray(body);
+    if (!rawVehicles.length) {
+      this.app.log.warn('Uffizio: no vehicle entries in live data response');
       return;
     }
 
-    const locations: VehicleLocation[] = await this.parseAndEnrichLocations(data.data);
-
-    // Cache each vehicle and broadcast fleet positions
-    if (this.app.redis) {
-      const pipeline = this.app.redis.pipeline();
-      for (const loc of locations) {
-        const key = `vehicle:${loc.imei}:location`;
-        pipeline.set(key, JSON.stringify(loc), 'EX', 300);
-      }
-      await pipeline.exec();
+    const locations = await this.mapToInternalFormat(rawVehicles);
+    if (!locations.length) {
+      this.app.log.warn('Uffizio: no vehicles matched by IMEI in our database');
+      return;
     }
 
-    // Broadcast throttled fleet positions to all dispatcher/watcher clients
-    this.app.io.to(`role:${Role.DISPATCHER}`).to(`role:${Role.WATCHER}`).emit('fleet:pos', locations);
-    this.app.log.info(`Kimiitrack: cached ${locations.length} vehicle locations`);
+    await this.persistLocations(locations);
+
+    this.app.io
+      .to(`role:${Role.DISPATCHER}`)
+      .to(`role:${Role.WATCHER}`)
+      .emit('fleet:pos', locations);
+
+    this.app.log.info(`Uffizio: updated ${locations.length} vehicle locations`);
   }
 
-  /**
-   * Maps Uffizio API response fields to our internal VehicleLocation format.
-   * Also cross-references with DB vehicles by IMEI for agencyId.
-   *
-   * TODO: Update field mapping once actual liveData response format is confirmed.
-   */
-  private async parseAndEnrichLocations(rawData: any): Promise<VehicleLocation[]> {
-    // Fetch all vehicles from DB to map IMEI → agencyId
+  private _loggedStructure = false;
+
+  // ── Response parsing ──────────────────────────────────────────────────────
+
+  private extractVehicleArray(body: any): any[] {
+    // Confirmed response format: { root: { VehicleData: [...] } }
+    if (Array.isArray(body?.root?.VehicleData)) return body.root.VehicleData;
+    // Fallback for alternative shapes
+    if (Array.isArray(body)) return body;
+    if (Array.isArray(body?.data)) return body.data;
+    if (Array.isArray(body?.result)) return body.result;
+    return [];
+  }
+
+  private async mapToInternalFormat(rawVehicles: any[]): Promise<VehicleLocation[]> {
     const dbVehicles = await this.app.prisma.vehicle.findMany({
       select: { id: true, imei: true, registrationNumber: true, agencyId: true, isActive: true },
     });
-    const vehicleMap = new Map(dbVehicles.map(v => [v.imei, v]));
+    const byImei = new Map(dbVehicles.map(v => [v.imei, v]));
+    const byReg = new Map(dbVehicles.map(v => [v.registrationNumber?.toUpperCase(), v]));
 
     const locations: VehicleLocation[] = [];
 
-    // TODO: Adjust these field names once liveData response format is confirmed
-    for (const [, vehicle] of Object.entries<any>(rawData)) {
-      const gps = vehicle.gps ?? vehicle;
-      const imei = String(vehicle.imei_no ?? vehicle.imei ?? '');
-      const dbVehicle = vehicleMap.get(imei);
+    for (const raw of rawVehicles) {
+      // Confirmed field names from live API response
+      const imei = String(raw.Imeino ?? raw.imei_no ?? raw.imei ?? '');
+      const reg = String(raw.Vehicle_No ?? raw.vehicle_no ?? '').toUpperCase();
 
-      if (!dbVehicle) continue; // skip vehicles not in our DB
+      const dbV = byImei.get(imei) ?? byReg.get(reg);
+      if (!dbV) continue;
+
+      const lat = parseFloat(raw.Latitude ?? raw.latitude ?? '0');
+      const lng = parseFloat(raw.Longitude ?? raw.longitude ?? '0');
+
+      if (!lat && !lng) continue;
+
+      // IGN field: "ON", "OFF", "--" (unknown)
+      const ignRaw = String(raw.IGN ?? raw.ignition ?? '').toUpperCase();
+      const ignition = ignRaw === 'ON';
+
+      // GPSActualTime format: "11-05-2026 12:56:08" (DD-MM-YYYY HH:mm:ss)
+      const rawTs = raw.GPSActualTime ?? raw.gps_actual_date_time ?? '';
+      let timestamp: string;
+      if (rawTs) {
+        // Convert DD-MM-YYYY HH:mm:ss → ISO
+        const [datePart, timePart] = rawTs.split(' ');
+        const [dd, mm, yyyy] = (datePart ?? '').split('-');
+        timestamp = `${yyyy}-${mm}-${dd}T${timePart ?? '00:00:00'}Z`;
+      } else {
+        timestamp = new Date().toISOString();
+      }
 
       locations.push({
-        vehicleId: dbVehicle.id,
-        imei,
-        registration: dbVehicle.registrationNumber,
-        lat: parseFloat(gps.latitude ?? gps.lat ?? 0),
-        lng: parseFloat(gps.longitude ?? gps.lng ?? 0),
-        speed: parseFloat(gps.speed ?? 0),
-        heading: parseInt(gps.heading ?? 0, 10),
-        ignition: gps.ignition === 'on' || gps.ignition === true,
-        timestamp: gps.gps_actual_date_time ?? new Date().toISOString(),
-        agencyId: dbVehicle.agencyId,
-        isActive: dbVehicle.isActive,
+        vehicleId: dbV.id,
+        imei: dbV.imei,
+        registration: dbV.registrationNumber,
+        lat,
+        lng,
+        speed: parseFloat(String(raw.Speed ?? raw.speed ?? '0')),
+        heading: parseInt(String(raw.Angle ?? raw.heading ?? '0'), 10),
+        ignition,
+        timestamp,
+        agencyId: dbV.agencyId,
+        isActive: dbV.isActive,
       });
     }
 
     return locations;
   }
 
-  /**
-   * Starts the 60-second polling worker.
-   * Called once during app startup.
-   */
+  // ── Persistence ───────────────────────────────────────────────────────────
+
+  private async persistLocations(locations: VehicleLocation[]): Promise<void> {
+    await Promise.all(
+      locations.map(loc =>
+        this.app.prisma.vehicle.update({
+          where: { id: loc.vehicleId },
+          data: {
+            lastLat: loc.lat,
+            lastLng: loc.lng,
+            lastLocationAt: new Date(loc.timestamp),
+          },
+        }).catch(err =>
+          this.app.log.warn({ err, vehicleId: loc.vehicleId }, 'Uffizio: failed to persist vehicle location')
+        )
+      )
+    );
+
+    // Also cache in Redis for O(1) nearest-vehicle queries
+    if (this.app.redis) {
+      const pipeline = this.app.redis.pipeline();
+      for (const loc of locations) {
+        pipeline.set(`vehicle:${loc.imei}:location`, JSON.stringify(loc), 'EX', 120);
+      }
+      await pipeline.exec();
+    }
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
   start(): void {
-    if (!this.app.config.KIMII_USERNAME || !this.app.config.KIMII_PASSWORD) {
-      this.app.log.warn('Kimiitrack: KIMII_USERNAME or KIMII_PASSWORD not set — GPS polling disabled');
+    if (!this.username || !this.password || !this.baseUrl) {
+      this.app.log.warn('Uffizio: credentials not configured — GPS polling disabled. Set UFFIZIO_BASE_URL, UFFIZIO_USERNAME, UFFIZIO_PASSWORD in .env');
       return;
     }
 
-    this.app.log.info('Kimiitrack: starting GPS polling worker (60s interval)');
+    this.app.log.info(`Uffizio: starting GPS polling (${POLL_INTERVAL_MS / 1000}s interval)`);
 
-    // Run immediately then every 60s
-    this.fetchAndCacheLocations().catch(err =>
-      this.app.log.error({ err }, 'Kimiitrack: initial fetch failed')
+    this.fetchAndUpdateLocations().catch(err =>
+      this.app.log.error({ err }, 'Uffizio: initial fetch failed')
     );
 
     this.pollingInterval = setInterval(() => {
-      this.fetchAndCacheLocations().catch(err =>
-        this.app.log.error({ err }, 'Kimiitrack: polling fetch failed')
+      this.fetchAndUpdateLocations().catch(err =>
+        this.app.log.error({ err }, 'Uffizio: poll failed')
       );
-    }, 60_000);
+    }, POLL_INTERVAL_MS);
   }
 
   stop(): void {
