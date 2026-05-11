@@ -28,12 +28,3 @@ pino-pretty.log
 
 # Testing
 client-test/
-
-# Temporary setup files
-node-v22.14.0-win-x64/
-node22.zip
-git/
-git.zip
-node.zip
-frontend/node-v20.12.2-win-x64/
-frontend/node.zip
