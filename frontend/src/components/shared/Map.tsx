@@ -86,14 +86,14 @@ function vehiclePopupHtml(v: LiveVehicle, status: VehicleTrackingStatus): string
   const p = STATUS_PALETTE[status];
   return `<div style="font-family:system-ui,sans-serif;min-width:200px;padding:2px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:14px;font-weight:900;color:#0f172a;letter-spacing:-0.02em">${v.registration}</span>
+      <span style="font-size:14px;font-weight:900;color:#000000;letter-spacing:-0.02em">${v.registration}</span>
       <span style="background:${p.bg};color:white;font-size:9px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:0.07em">${STATUS_LABEL[status]}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:11px">
-      <div style="color:#64748b;font-weight:600">Speed</div><div style="color:#0f172a;font-weight:800">${Math.round(v.speed)} km/h</div>
+      <div style="color:#64748b;font-weight:600">Speed</div><div style="color:#000000;font-weight:800">${Math.round(v.speed)} km/h</div>
       <div style="color:#64748b;font-weight:600">Ignition</div><div style="color:${v.ignition ? '#15803d' : '#dc2626'};font-weight:800">${v.ignition ? 'ON' : 'OFF'}</div>
-      <div style="color:#64748b;font-weight:600">Heading</div><div style="color:#0f172a;font-weight:800">${v.heading}°</div>
-      <div style="color:#64748b;font-weight:600">Last seen</div><div style="color:#0f172a;font-weight:800">${secsAgo(v.timestamp)}</div>
+      <div style="color:#64748b;font-weight:600">Heading</div><div style="color:#000000;font-weight:800">${v.heading}°</div>
+      <div style="color:#64748b;font-weight:600">Last seen</div><div style="color:#000000;font-weight:800">${secsAgo(v.timestamp)}</div>
     </div>
     <div style="margin-top:9px;padding-top:7px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;font-family:monospace;font-weight:700">IMEI ${v.imei}</div>
   </div>`;
@@ -131,14 +131,14 @@ function LiveBadge({ vehicleCount, incidentCount, lastUpdatedAt }: {
     : null;
   return (
     <div className="absolute top-3 right-3 z-[1000] flex flex-col items-end gap-1.5 pointer-events-none">
-      <div className="flex items-center gap-2 bg-[#0f172a]/85 backdrop-blur-sm text-white px-3 py-2 rounded-xl shadow-xl border border-white/10">
+      <div className="flex items-center gap-2 bg-black/85 backdrop-blur-sm text-white px-3 py-2 rounded-xl shadow-xl border border-white/10">
         <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
         <span className="text-[10px] font-black tracking-[0.15em]">LIVE</span>
         {vehicleCount > 0 && <><span className="text-slate-500 text-[10px]">·</span><span className="text-[10px] font-bold text-slate-300">{vehicleCount} unit{vehicleCount !== 1 ? 's' : ''}</span></>}
         {incidentCount > 0 && <><span className="text-slate-500 text-[10px]">·</span><span className="text-[10px] font-bold text-red-400">{incidentCount} incident{incidentCount !== 1 ? 's' : ''}</span></>}
       </div>
       {timeStr && (
-        <div className="bg-[#0f172a]/70 backdrop-blur-sm text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border border-white/5">{timeStr}</div>
+        <div className="bg-black/70 backdrop-blur-sm text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border border-white/5">{timeStr}</div>
       )}
     </div>
   );
@@ -156,7 +156,7 @@ const LEGEND_ITEMS = [
 
 function MapLegend({ hasIncidents }: { hasIncidents: boolean }) {
   return (
-    <div className="absolute bottom-8 left-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2.5 pointer-events-none">
+    <div className="absolute bottom-14 left-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2.5 pointer-events-none">
       <p className="text-[8px] font-black tracking-[0.18em] text-slate-400 uppercase mb-2">Legend</p>
       <div className="flex flex-col gap-1.5">
         {LEGEND_ITEMS.map(item => (
@@ -177,135 +177,83 @@ function MapLegend({ hasIncidents }: { hasIncidents: boolean }) {
   );
 }
 
-// ── Overlay: Vehicle list panel ───────────────────────────────────────────────
+// ── Overlay: Vehicle strip (bottom bar) ──────────────────────────────────────
 
-function VehicleListPanel({
+function VehicleStrip({
   vehicles,
   onFlyTo,
 }: {
   vehicles: LiveVehicle[];
   onFlyTo: (v: LiveVehicle) => void;
 }) {
-  const [open, setOpen] = useState(true);
-  const [selected, setSelected] = useState<LiveVehicle | null>(null);
-
-  // Keep selected vehicle data fresh as positions update
-  const freshSelected = selected
-    ? vehicles.find(v => v.vehicleId === selected.vehicleId) ?? selected
-    : null;
+  const [visible, setVisible] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function handleSelect(v: LiveVehicle) {
-    setSelected(v);
+    setSelectedId(v.vehicleId === selectedId ? null : v.vehicleId);
     onFlyTo(v);
   }
 
-  if (!open) {
+  if (!visible) {
     return (
       <button
-        onClick={() => setOpen(true)}
-        className="absolute top-14 left-3 z-[1000] flex items-center gap-2 bg-[#0f172a]/85 backdrop-blur-sm text-white px-3 py-2 rounded-xl shadow-xl border border-white/10 hover:bg-[#0f172a] transition-all text-[10px] font-black tracking-widest"
+        onClick={() => setVisible(true)}
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10 hover:bg-black/90 transition-all"
       >
-        <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-        UNITS ({vehicles.length})
+        <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
+        {vehicles.length} units
       </button>
     );
   }
 
   return (
-    <div className="absolute top-14 left-3 z-[1000] w-56 bg-[#0f172a]/90 backdrop-blur-md rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/10">
-        {freshSelected ? (
-          <button
-            onClick={() => setSelected(null)}
-            className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors"
-          >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="text-[10px] font-black tracking-widest uppercase">All Units</span>
-          </button>
-        ) : (
-          <span className="text-[10px] font-black tracking-widest text-slate-300 uppercase">
-            Units · {vehicles.length}
-          </span>
-        )}
-        <button
-          onClick={() => setOpen(false)}
-          className="w-5 h-5 flex items-center justify-center rounded-full text-slate-500 hover:text-white hover:bg-white/10 transition-all text-sm leading-none"
-        >
-          ×
-        </button>
+    <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-black/80 backdrop-blur-md border-t border-white/10 flex items-center">
+      {/* Label */}
+      <div className="flex-shrink-0 px-3 border-r border-white/10 self-stretch flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
+        <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap">{vehicles.length} units</span>
       </div>
 
-      {/* Detail view */}
-      {freshSelected ? (() => {
-        const status = getVehicleTrackingStatus(freshSelected);
-        const p = STATUS_PALETTE[status];
-        return (
-          <div className="px-3 py-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-white font-black text-sm tracking-tight">{freshSelected.registration}</span>
-              <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background: p.bg, color: 'white' }}>
-                {STATUS_LABEL[status]}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-              <span className="text-slate-500 font-medium">Speed</span>
-              <span className="text-white font-bold">{Math.round(freshSelected.speed)} km/h</span>
-              <span className="text-slate-500 font-medium">Ignition</span>
-              <span className="font-bold" style={{ color: freshSelected.ignition ? '#22c55e' : '#ef4444' }}>
-                {freshSelected.ignition ? 'ON' : 'OFF'}
-              </span>
-              <span className="text-slate-500 font-medium">Heading</span>
-              <span className="text-white font-bold">{freshSelected.heading}°</span>
-              <span className="text-slate-500 font-medium">Updated</span>
-              <span className="text-white font-bold">{secsAgo(freshSelected.timestamp)}</span>
-            </div>
-            <div className="border-t border-white/10 pt-2 text-[9px] text-slate-600 font-mono">
-              {freshSelected.imei}
-            </div>
-            <button
-              onClick={() => onFlyTo(freshSelected)}
-              className="w-full text-[10px] font-black uppercase tracking-widest py-2 rounded-lg border border-brand-green/40 text-brand-green hover:bg-brand-green/10 transition-all"
-            >
-              Re-centre Map
-            </button>
-          </div>
-        );
-      })() : (
-        /* List view */
-        <div className="overflow-y-auto max-h-64 divide-y divide-white/5">
+      {/* Scrollable pills */}
+      <div className="flex-1 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1 px-2 py-2">
           {vehicles.length === 0 && (
-            <p className="text-[11px] text-slate-500 text-center py-6">No units tracked yet</p>
+            <span className="text-[11px] text-slate-500 px-2">No units online</span>
           )}
           {vehicles.map(v => {
             const status = getVehicleTrackingStatus(v);
             const p = STATUS_PALETTE[status];
+            const isSelected = selectedId === v.vehicleId;
             return (
               <button
                 key={v.vehicleId}
                 onClick={() => handleSelect(v)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-all text-left group"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 border ${
+                  isSelected
+                    ? 'bg-white/15 border-white/20 text-white'
+                    : 'border-transparent text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}
               >
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: p.light }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-[11px] font-black truncate group-hover:text-brand-green transition-colors">
-                    {v.registration}
-                  </p>
-                  <p className="text-[9px] font-bold mt-0.5" style={{ color: p.light }}>
-                    {STATUS_LABEL[status]}{v.speed > 2 ? `  ${Math.round(v.speed)} km/h` : ''}
-                  </p>
-                </div>
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" className="text-slate-600 group-hover:text-slate-400 flex-shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.light }} />
+                <span className="font-semibold">{v.registration}</span>
+                {v.speed > 2 && (
+                  <span className="text-slate-500 text-[10px]">{Math.round(v.speed)} km/h</span>
+                )}
               </button>
             );
           })}
         </div>
-      )}
+      </div>
+
+      {/* Close */}
+      <button
+        onClick={() => setVisible(false)}
+        className="flex-shrink-0 px-3 self-stretch flex items-center border-l border-white/10 text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -412,7 +360,7 @@ export default function Map({
         />
       )}
       {showVehicleList && vehicleMarkers.length > 0 && (
-        <VehicleListPanel vehicles={vehicleMarkers} onFlyTo={flyToVehicle} />
+        <VehicleStrip vehicles={vehicleMarkers} onFlyTo={flyToVehicle} />
       )}
       {showLegend && <MapLegend hasIncidents={markers.length > 0} />}
       {children}

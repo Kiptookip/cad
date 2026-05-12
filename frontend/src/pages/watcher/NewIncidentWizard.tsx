@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, ArrowLeft, CheckCircle, MapPin, Phone, User, WarningCircle, MagnifyingGlass, CrosshairSimple, X } from '@phosphor-icons/react';
+import { ArrowRight, ArrowLeft, CheckCircle, MapPin, Phone, User, WarningCircle, MagnifyingGlass, CrosshairSimple, X, PaperPlaneRight } from '@phosphor-icons/react';
 import api from '../../api/client';
 import Map from '../../components/shared/Map';
+import { useNotificationStore } from '../../stores/notificationStore';
 
 type WizardState = {
   alertMode: string;
@@ -39,6 +40,42 @@ const STEPS = [
 export default function NewIncidentWizard() {
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { addNotification } = useNotificationStore();
+  const submitted = (location.state as any)?.submitted;
+  const submittedCase = (location.state as any)?.caseNumber;
+
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] p-8 gap-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-brand-green/10 flex items-center justify-center">
+          <CheckCircle size={36} weight="fill" className="text-brand-green" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-brand-teal">Incident Submitted</h2>
+          {submittedCase && (
+            <p className="text-sm text-slate-text mt-1">Case <span className="font-semibold text-brand-teal">{submittedCase}</span> is now in the dispatch queue.</p>
+          )}
+          <p className="text-xs text-slate-text mt-1">A dispatcher has been notified.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/watcher/new-incident', { replace: true, state: {} })}
+            className="px-5 py-2.5 border border-surface-border text-brand-teal text-sm font-medium rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2"
+          >
+            <PaperPlaneRight size={16} weight="bold" />
+            Submit Another
+          </button>
+          <button
+            onClick={() => navigate('/watcher')}
+            className="px-5 py-2.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
@@ -112,7 +149,19 @@ export default function NewIncidentWizard() {
       watcherComments: formData.watcherComments,
       status: 'SUBMITTED',
     }),
-    onSuccess: () => navigate('/watcher/new-incident'),
+    onSuccess: (res) => {
+      const caseNumber = res?.data?.data?.caseNumber ?? '';
+      navigate('/watcher/new-incident', {
+        state: { submitted: true, caseNumber },
+      });
+    },
+    onError: (err: any) => {
+      addNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: err?.response?.data?.message || 'Could not submit incident. Please check your connection.',
+      });
+    },
   });
 
   const isLocationStep = step === 2;
@@ -407,7 +456,7 @@ export default function NewIncidentWizard() {
                         Submission failed. Please check your connection and try again.
                       </div>
                     )}
-                    <div className="bg-[#f2fbff] rounded-xl border border-surface-border divide-y divide-surface-border overflow-hidden">
+                    <div className="bg-slate-50 rounded-xl border border-surface-border divide-y divide-surface-border overflow-hidden">
                       {[
                         { label: 'Alert Mode', value: formData.alertMode },
                         { label: 'Location', value: formData.locationName || 'Not provided' },
@@ -428,7 +477,7 @@ export default function NewIncidentWizard() {
               </div>
 
               {/* Nav footer */}
-              <div className="px-8 py-5 border-t border-surface-border flex justify-between items-center bg-[#f8fafb]">
+              <div className="px-8 py-5 border-t border-surface-border flex justify-between items-center bg-slate-50">
                 <button
                   onClick={step === 1 ? () => navigate(-1) : () => setStep(s => s - 1)}
                   className="flex items-center gap-2 px-5 h-11 rounded-xl font-black text-sm text-slate-400 hover:bg-slate-100 transition-all"

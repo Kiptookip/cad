@@ -67,88 +67,44 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
-      {/* Bento Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-        {/* Queue Count */}
-        <div 
-          onClick={() => navigate('/queue')}
-          className="group relative bg-white border border-surface-border p-4 flex flex-col justify-between h-32 rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-1 h-full bg-status-danger group-hover:w-1.5 transition-all"></div>
-          <div className="flex justify-between items-start">
-            <span className="font-sans text-[9px] font-black tracking-[0.2em] text-slate-400 uppercase group-hover:text-status-danger transition-colors">Queue Count</span>
-            <div className="bg-status-danger/10 p-1.5 rounded-lg group-hover:bg-status-danger group-hover:text-white transition-all duration-300">
-              <WarningCircle size={20} weight="bold" />
-            </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div onClick={() => navigate('/queue')} className="bg-white border border-surface-border rounded-xl p-5 cursor-pointer hover:shadow-sm hover:border-status-danger/40 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-medium text-slate-text">Queue Count</p>
+            <WarningCircle size={16} className="text-status-danger" />
           </div>
-          <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">{queueCount}</span>
-            <span className="bg-status-danger text-white px-2 py-1 rounded-md text-[8px] font-black tracking-widest uppercase shadow-lg shadow-status-danger/20">CRITICAL</span>
-          </div>
+          <p className="text-3xl font-bold text-brand-teal leading-none">{queueCount}</p>
+          <p className="text-xs text-slate-text mt-2">{queueCount > 0 ? 'Needs attention' : 'Queue clear'}</p>
         </div>
 
-        {/* Active Incidents */}
-        <div 
-          onClick={() => navigate('/queue')}
-          className="group relative bg-white border border-surface-border p-4 flex flex-col justify-between h-32 rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-1 h-full bg-brand-green group-hover:w-1.5 transition-all"></div>
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col">
-              <span className="font-sans text-[9px] font-black tracking-[0.2em] text-slate-400 uppercase group-hover:text-brand-green transition-colors">Active Operations</span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="w-1 h-1 rounded-full bg-brand-green animate-pulse"></span>
-                <span className="text-[7px] font-black text-brand-green uppercase tracking-widest">Live</span>
-              </div>
-            </div>
-            <div className="bg-brand-green/10 p-1.5 rounded-lg group-hover:bg-brand-green group-hover:text-white transition-all duration-300">
-              <Broadcast size={20} weight="bold" />
-            </div>
+        <div onClick={() => navigate('/queue')} className="bg-white border border-surface-border rounded-xl p-5 cursor-pointer hover:shadow-sm hover:border-brand-green/40 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-medium text-slate-text">Active Operations</p>
+            <Broadcast size={16} className="text-brand-green" />
           </div>
-          <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">
-              {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length}
-            </span>
-            <span className="text-brand-green font-black text-[9px] bg-brand-green/5 px-2 py-1 rounded-md uppercase tracking-widest">
-              Live
-            </span>
-          </div>
+          <p className="text-3xl font-bold text-brand-teal leading-none">
+            {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length}
+          </p>
+          <p className="text-xs text-slate-text mt-2">Currently dispatched</p>
         </div>
 
-        {/* Available Vehicles */}
-        <div 
-          onClick={() => navigate('/fleet')}
-          className="group relative bg-white border border-surface-border p-4 flex flex-col justify-between h-32 rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-1 h-full bg-brand-teal group-hover:w-1.5 transition-all"></div>
-          <div className="flex justify-between items-start">
-            <span className="font-sans text-[9px] font-black tracking-[0.2em] text-slate-400 uppercase group-hover:text-brand-teal transition-colors">Available Units</span>
-            <div className="bg-brand-teal/10 p-1.5 rounded-lg group-hover:bg-brand-teal group-hover:text-white transition-all duration-300">
-              <Truck size={20} weight="bold" />
-            </div>
+        <div onClick={() => navigate('/fleet')} className="bg-white border border-surface-border rounded-xl p-5 cursor-pointer hover:shadow-sm hover:border-brand-teal/30 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-medium text-slate-text">Available Units</p>
+            <Truck size={16} className="text-brand-teal/60" />
           </div>
-          <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-brand-teal leading-none tracking-tighter">{availableVehicles}</span>
-            <span className="bg-brand-teal text-white px-2 py-1 rounded-md text-[8px] font-black tracking-widest uppercase shadow-lg shadow-brand-teal/20">STANDBY</span>
-          </div>
+          <p className="text-3xl font-bold text-brand-teal leading-none">{availableVehicles}</p>
+          <p className="text-xs text-slate-text mt-2">Ready for dispatch</p>
         </div>
 
-        {/* Response Time */}
-        <div className="group relative bg-[#1a2327] p-4 flex flex-col justify-between h-32 rounded-xl shadow-2xl border border-white/5 overflow-hidden transition-all duration-500 hover:shadow-brand-green/20">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-green/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="flex justify-between items-start relative z-10">
-            <span className="font-sans text-[9px] font-black tracking-[0.2em] text-slate-400 uppercase group-hover:text-brand-green transition-colors">Avg Response (TAT)</span>
-            <div className="bg-brand-green/20 p-1.5 rounded-lg border border-brand-green/30">
-              <Timer size={20} weight="bold" className="text-brand-green" />
-            </div>
+        <div className="bg-brand-sidebar rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-medium text-slate-400">Avg Response</p>
+            <Timer size={16} className="text-brand-green" />
           </div>
-          <div className="flex items-end justify-between relative z-10">
-            <span className="font-sans text-3xl font-black text-white leading-none tracking-tighter">—</span>
-            <div className="text-right">
-              <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em]">Benchmark</p>
-              <p className="text-xs font-black text-brand-green">8:00</p>
-            </div>
-          </div>
+          <p className="text-3xl font-bold text-white leading-none">—</p>
+          <p className="text-xs text-white/30 mt-2">Target: 8:00</p>
         </div>
       </div>
 
@@ -159,43 +115,36 @@ export default function DashboardPage() {
         <div className={`lg:col-span-8 bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden flex flex-col transition-all duration-500 ${
           isMapExpanded ? 'fixed inset-4 z-[100] shadow-2xl' : 'relative'
         }`}>
-          <div className="px-6 py-4 border-b border-surface-border flex justify-between items-center bg-[#f8fafb]">
-            <div className="flex items-center gap-3">
-               <div className="w-1.5 h-6 bg-brand-green rounded-full"></div>
-               <h2 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Live Operational Map</h2>
-               {isMapExpanded && <span className="bg-brand-green text-brand-sidebar text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">Full Scale Tactical View</span>}
+          <div className="px-5 py-3.5 border-b border-surface-border flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              <h2 className="font-semibold text-sm text-brand-teal">Operational Map</h2>
+              {isMapExpanded && <span className="bg-brand-green/10 text-brand-green text-xs font-medium px-2.5 py-0.5 rounded-md">Full Scale</span>}
             </div>
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => {
                   const layers: ('light' | 'dark' | 'street')[] = ['light', 'dark', 'street'];
                   const nextLayer = layers[(layers.indexOf(mapLayer) + 1) % layers.length];
                   setMapLayer(nextLayer);
                   addNotification({ type: 'info', title: 'Layer Changed', message: `Map layer set to ${nextLayer}.` });
                 }}
-                className="bg-white border border-surface-border px-3 py-1.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 rounded-lg hover:bg-brand-teal hover:text-white transition-all shadow-sm"
+                className="border border-surface-border px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 rounded-lg hover:bg-slate-50 transition-all text-slate-text"
               >
-                <Stack size={18} weight="bold" /> Layers
+                <Stack size={14} weight="bold" /> Layers
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setIsMapExpanded(!isMapExpanded);
                   if (!isMapExpanded) {
                     addNotification({ type: 'info', title: 'Tactical View', message: 'Map expanded to full scale.' });
                   }
                 }}
-                className={`bg-white border border-surface-border px-3 py-1.5 text-xs font-black flex items-center gap-2 rounded-lg transition-all shadow-sm ${
-                  isMapExpanded ? 'hover:bg-status-danger hover:text-white' : 'hover:bg-brand-teal hover:text-white'
-                }`}
+                className="border border-surface-border px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 rounded-lg hover:bg-slate-50 transition-all text-slate-text"
               >
                 {isMapExpanded ? (
-                  <>
-                    <X size={18} weight="bold" /> Close
-                  </>
+                  <><X size={14} weight="bold" /> Close</>
                 ) : (
-                  <>
-                    <CornersOut size={18} weight="bold" /> Expand
-                  </>
+                  <><CornersOut size={14} weight="bold" /> Expand</>
                 )}
               </button>
             </div>
@@ -217,49 +166,46 @@ export default function DashboardPage() {
         </div>
 
         {/* Queue Preview (4 Cols) */}
-        <div className="lg:col-span-4 bg-white border border-surface-border rounded-2xl shadow-sm flex flex-col h-[400px] lg:h-[615px] overflow-hidden group">
-          <div className="px-8 py-5 border-b border-surface-border flex justify-between items-center bg-[#f8fafb]">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-6 bg-status-danger rounded-full"></div>
-              <h2 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Queue Preview</h2>
-            </div>
-            <span className="bg-status-danger text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg shadow-status-danger/20 animate-pulse">PRIORITY</span>
+        <div className="lg:col-span-4 bg-white border border-surface-border rounded-xl shadow-sm flex flex-col h-[400px] lg:h-[615px] overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-surface-border flex justify-between items-center">
+            <h2 className="font-semibold text-sm text-brand-teal">Queue Preview</h2>
+            {queueCount > 0 && <span className="bg-status-danger/10 text-status-danger text-xs font-medium px-2.5 py-0.5 rounded-md">{queueCount} pending</span>}
           </div>
           <div className="flex-1 overflow-y-auto hide-scrollbar">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-left bg-slate-50/50 border-b border-surface-border">
-                  <th className="px-8 py-4 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">ID / Pri</th>
-                  <th className="px-8 py-4 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Description</th>
-                  <th className="px-8 py-4 font-sans text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">Wait</th>
+                  <th className="px-5 py-3 text-xs font-medium text-slate-text">ID</th>
+                  <th className="px-5 py-3 text-xs font-medium text-slate-text">Description</th>
+                  <th className="px-5 py-3 text-xs font-medium text-slate-text">Wait</th>
                 </tr>
               </thead>
               <tbody>
                 {queueData ? queueData.slice(0, 8).map(incident => (
-                  <tr 
-                    key={incident.id} 
+                  <tr
+                    key={incident.id}
                     onClick={() => navigate(`/incidents/${incident.id}`)}
-                    className="border-b border-surface-border/50 hover:bg-brand-green/5 cursor-pointer transition-all duration-200 group/row"
+                    className="border-b border-surface-border/50 hover:bg-slate-50 cursor-pointer transition-colors"
                   >
-                    <td className="px-8 py-5">
+                    <td className="px-5 py-3.5">
                       <div className="flex flex-col">
-                        <span className="font-sans text-sm font-black text-brand-teal group-hover/row:text-brand-green transition-colors">{incident.caseNumber}</span>
-                        <span className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${
+                        <span className="text-sm font-semibold text-brand-teal">{incident.caseNumber}</span>
+                        <span className={`text-xs mt-0.5 ${
                           incident.status === 'SUBMITTED' ? 'text-status-danger' :
                           incident.status === 'DISPATCH_HANDLING' ? 'text-status-warning' : 'text-status-info'
                         }`}>{incident.status.replace(/_/g, ' ')}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-5 py-3.5">
                       <div className="flex flex-col">
-                        <span className="font-sans text-sm font-bold text-brand-teal line-clamp-1 group-hover/row:text-brand-green transition-colors">{incident.chiefComplaint}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{incident.locationName}</span>
+                        <span className="text-sm text-brand-teal line-clamp-1">{incident.chiefComplaint}</span>
+                        <span className="text-xs text-slate-text mt-0.5">{incident.locationName}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'bg-status-danger animate-pulse' : 'bg-brand-green'}`}></div>
-                        <span className={`font-sans text-xs font-black ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'text-status-danger' : 'text-brand-teal'}`}>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'bg-status-danger animate-pulse' : 'bg-brand-green'}`}></div>
+                        <span className={`text-xs ${Date.now() - new Date(incident.createdAt).getTime() > 600_000 ? 'text-status-danger' : 'text-slate-text'}`}>
                           {formatDistanceToNow(new Date(incident.createdAt))}
                         </span>
                       </div>
@@ -267,19 +213,19 @@ export default function DashboardPage() {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={3} className="px-8 py-12 text-center font-bold text-slate-400 text-sm uppercase tracking-widest">Queue is clear</td>
+                    <td colSpan={3} className="px-5 py-10 text-center text-sm text-slate-text">Queue is clear</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div className="p-8 bg-[#f8fafb] border-t border-surface-border">
-            <button 
+          <div className="p-4 border-t border-surface-border">
+            <button
               onClick={() => navigate('/queue')}
-              className="w-full bg-brand-teal text-white py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.25em] hover:bg-brand-sidebar hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 shadow-lg shadow-brand-teal/10 active:scale-95 flex items-center justify-center gap-3"
+              className="w-full bg-brand-teal text-white py-3 rounded-lg text-sm font-medium hover:bg-brand-teal/90 transition-colors flex items-center justify-center gap-2"
             >
-              <Stack size={20} weight="bold" />
-              Full Tactical Queue
+              <Stack size={16} weight="bold" />
+              View Full Queue
             </button>
           </div>
         </div>
@@ -287,34 +233,34 @@ export default function DashboardPage() {
       </div>
 
       {/* Footer Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
-        <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <Broadcast size={24} className="text-brand-green" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white border border-surface-border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Broadcast size={18} className="text-slate-text" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Cases In Progress</p>
-            <p className="font-sans text-base font-bold text-brand-teal">
+            <p className="text-xs text-slate-text">Cases In Progress</p>
+            <p className="text-sm font-semibold text-brand-teal mt-0.5">
               {recentIncidents.filter(i => i.status === 'DISPATCH_HANDLING' || i.status === 'DISPATCHED').length} active
             </p>
           </div>
         </div>
-        <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <Ambulance size={24} className="text-brand-green" />
+        <div className="bg-white border border-surface-border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Ambulance size={18} className="text-slate-text" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Vehicles Tracked</p>
-            <p className="font-sans text-base font-bold text-brand-teal">{liveVehicles.length} units</p>
+            <p className="text-xs text-slate-text">Vehicles Tracked</p>
+            <p className="text-sm font-semibold text-brand-teal mt-0.5">{liveVehicles.length} units</p>
           </div>
         </div>
-        <div className="bg-white border border-surface-border p-4 rounded-lg flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-100 flex items-center justify-center rounded-lg">
-            <WifiHigh size={24} className="text-brand-green" />
+        <div className="bg-white border border-surface-border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <WifiHigh size={18} className="text-slate-text" />
           </div>
           <div>
-            <p className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">GPS Last Update</p>
-            <p className="font-sans text-base font-bold text-brand-teal">
+            <p className="text-xs text-slate-text">GPS Last Update</p>
+            <p className="text-sm font-semibold text-brand-teal mt-0.5">
               {lastUpdatedAt ? formatDistanceToNow(lastUpdatedAt, { addSuffix: true }) : 'Waiting…'}
             </p>
           </div>

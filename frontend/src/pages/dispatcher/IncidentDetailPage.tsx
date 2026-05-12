@@ -44,7 +44,14 @@ export default function IncidentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['incident', id] });
       setIsEditingBrief(false);
       addNotification({ type: 'success', title: 'Updated', message: 'Incident details updated successfully.' });
-    }
+    },
+    onError: (err: any) => {
+      addNotification({
+        type: 'error',
+        title: 'Update Failed',
+        message: err?.response?.data?.message || 'Could not update incident. Please try again.',
+      });
+    },
   });
 
   // Fetch nearest vehicles — use lat/lng from incident if available, else list all
@@ -83,12 +90,22 @@ export default function IncidentDetailPage() {
       });
     },
     onSuccess: () => {
-      // Optimistically update incident status
       queryClient.setQueryData(['incident', id], (old: any) => ({ ...old, status: 'DISPATCHED' }));
-      // Invalidate queue
       queryClient.invalidateQueries({ queryKey: ['dispatch', 'queue'] });
       queryClient.invalidateQueries({ queryKey: ['incidents'] });
-    }
+      addNotification({
+        type: 'success',
+        title: 'Crew Dispatched',
+        message: `Crew has been assigned and dispatched for case ${incident?.caseNumber}.`,
+      });
+    },
+    onError: (err: any) => {
+      addNotification({
+        type: 'error',
+        title: 'Dispatch Failed',
+        message: err?.response?.data?.message || 'Could not dispatch crew. Please try again.',
+      });
+    },
   });
 
   if (isLoading) return <div className="p-10 font-bold text-center text-slate-text">Loading Incident Details...</div>;
@@ -107,69 +124,71 @@ export default function IncidentDetailPage() {
   return (
     <div className="p-6 flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-white p-5 rounded-xl border border-surface-border">
         <div className="flex items-center gap-3">
-          <span className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">Incidents / Detail</span>
-          <h2 className="font-sans text-[24px] font-bold text-brand-teal uppercase">CASE {incident.caseNumber}</h2>
+          <div>
+            <p className="text-xs text-slate-text">Incidents / Detail</p>
+            <h2 className="text-xl font-bold text-brand-teal mt-0.5">Case {incident.caseNumber}</h2>
+          </div>
           {incident.massCasualty && (
-            <span className="px-3 py-1 bg-status-danger/15 text-status-danger rounded-full font-bold text-xs flex items-center gap-2 uppercase tracking-widest">
-              <span className="w-2 h-2 rounded-full bg-status-danger animate-pulse"></span>
-              Critical Priority
+            <span className="px-2.5 py-1 bg-status-danger/10 text-status-danger rounded-md font-medium text-xs flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-status-danger animate-pulse"></span>
+              MCI
             </span>
           )}
         </div>
-        <div className="flex gap-4">
-          <button 
+        <div className="flex gap-3">
+          <button
             onClick={() => window.print()}
-            className="group px-6 py-2.5 border-2 border-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-brand-teal hover:text-white hover:border-brand-teal transition-all duration-300 flex items-center gap-3 shadow-sm active:scale-95"
+            className="px-4 py-2 border border-surface-border text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2"
           >
-            <Printer size={20} weight="bold" className="group-hover:animate-bounce" /> 
-            Print Tactical Log
+            <Printer size={16} weight="bold" />
+            Print
           </button>
-          <button 
+          <button
             onClick={() => {
               updateMutation.mutate({ massCasualty: true });
-              addNotification({ 
-                type: 'error', 
-                title: 'High-Level Escalation', 
-                message: `Incident ${incident.caseNumber} has been escalated to National Command.` 
+              addNotification({
+                type: 'error',
+                title: 'Escalated',
+                message: `Incident ${incident.caseNumber} has been escalated.`
               });
             }}
-            className="group px-6 py-2.5 border-2 border-status-danger/30 text-status-danger text-xs font-black uppercase tracking-widest rounded-xl hover:bg-status-danger hover:text-white hover:border-status-danger transition-all duration-300 flex items-center gap-3 shadow-lg shadow-status-danger/10 active:scale-95"
+            className="px-4 py-2 border border-status-danger/30 text-status-danger text-sm font-medium rounded-lg hover:bg-status-danger hover:text-white transition-all flex items-center gap-2"
           >
-            <ArrowCircleUp size={20} weight="bold" className="group-hover:scale-125 transition-transform" /> 
-            Escalate Command
+            <ArrowCircleUp size={16} weight="bold" />
+            Escalate
           </button>
         </div>
       </div>
 
       {/* Status Timeline */}
-      <div className="bg-white p-6 border border-surface-border rounded-lg shadow-sm">
+      <div className="bg-white p-6 border border-surface-border rounded-xl shadow-sm">
         <div className="flex items-center w-full">
           <div className="flex items-center flex-1">
             <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-brand-green text-white' : 'bg-slate-200 text-slate-text'}`}>1</div>
-              <span className={`mt-2 font-sans text-[11px] font-bold tracking-widest uppercase ${step >= 1 ? 'text-brand-green' : 'text-slate-text'}`}>SUBMITTED</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= 1 ? 'bg-brand-green text-white' : 'bg-slate-100 text-slate-text'}`}>1</div>
+              <span className={`mt-2 text-xs font-medium ${step >= 1 ? 'text-brand-green' : 'text-slate-text'}`}>Submitted</span>
             </div>
-            <div className={`flex-1 h-[2px] mx-4 ${step > 1 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
+            <div className={`flex-1 h-px mx-4 ${step > 1 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
           </div>
           <div className="flex items-center flex-1">
             <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-brand-green text-white' : 'bg-slate-200 text-slate-text'}`}>2</div>
-              <span className={`mt-2 font-sans text-[11px] font-bold tracking-widest uppercase ${step >= 2 ? 'text-brand-green' : 'text-slate-text'}`}>HANDLING</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= 2 ? 'bg-brand-green text-white' : 'bg-slate-100 text-slate-text'}`}>2</div>
+              <span className={`mt-2 text-xs font-medium ${step >= 2 ? 'text-brand-green' : 'text-slate-text'}`}>Handling</span>
             </div>
-            <div className={`flex-1 h-[2px] mx-4 ${step > 2 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
+            <div className={`flex-1 h-px mx-4 ${step > 2 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
           </div>
           <div className="flex items-center flex-1">
             <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-brand-green text-white' : 'bg-slate-200 text-slate-text'}`}>3</div>
-              <span className={`mt-2 font-sans text-[11px] font-bold tracking-widest uppercase ${step >= 3 ? 'text-brand-green' : 'text-slate-text'}`}>DISPATCHED</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= 3 ? 'bg-brand-green text-white' : 'bg-slate-100 text-slate-text'}`}>3</div>
+              <span className={`mt-2 text-xs font-medium ${step >= 3 ? 'text-brand-green' : 'text-slate-text'}`}>Dispatched</span>
             </div>
-            <div className={`flex-1 h-[2px] mx-4 ${step > 3 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
+            <div className={`flex-1 h-px mx-4 ${step > 3 ? 'bg-brand-green' : 'bg-slate-200'}`}></div>
           </div>
           <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 4 ? 'bg-brand-green text-white' : 'bg-slate-200 text-slate-text'}`}>4</div>
-            <span className={`mt-2 font-sans text-[11px] font-bold tracking-widest uppercase ${step >= 4 ? 'text-brand-green' : 'text-slate-text'}`}>RESOLVED</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= 4 ? 'bg-brand-green text-white' : 'bg-slate-100 text-slate-text'}`}>4</div>
+            <span className={`mt-2 text-xs font-medium ${step >= 4 ? 'text-brand-green' : 'text-slate-text'}`}>Resolved</span>
           </div>
         </div>
       </div>
@@ -178,105 +197,105 @@ export default function IncidentDetailPage() {
         {/* Left Column: Details */}
         <div className="col-span-12 lg:col-span-7 flex flex-col gap-6">
           
-          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden transition-all">
-            <div className="px-6 py-4 border-b border-surface-border bg-[#f8fafb] flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-5 bg-brand-teal rounded-full"></div>
-                <h3 className="font-sans text-[18px] font-black text-brand-teal uppercase tracking-tight">Incident Brief</h3>
-              </div>
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex justify-between items-center">
+              <h3 className="font-semibold text-brand-teal">Incident Brief</h3>
               {!isEditingBrief ? (
-                <button 
+                <button
                   onClick={() => setIsEditingBrief(true)}
-                  className="p-2 hover:bg-brand-teal/10 rounded-lg text-slate-400 hover:text-brand-teal transition-all"
+                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-brand-teal transition-all"
                 >
-                  <PencilSimple size={20} weight="bold" />
+                  <PencilSimple size={18} weight="bold" />
                 </button>
               ) : (
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => setIsEditingBrief(false)}
-                    className="px-3 py-1 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all"
+                    className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-slate-600 transition-all"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => updateMutation.mutate({ chiefComplaint: editedComplaint, locationName: editedLocation })}
                     disabled={updateMutation.isPending}
-                    className="px-4 py-1.5 bg-brand-teal text-white text-[10px] font-black uppercase rounded-lg shadow-md hover:bg-brand-sidebar transition-all disabled:opacity-50"
+                    className="px-4 py-1.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
                   >
-                    {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    {updateMutation.isPending ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               )}
             </div>
-            <div className="p-6 grid grid-cols-2 gap-8">
+            <div className="p-6 grid grid-cols-2 gap-6">
               <div>
-                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">CHIEF COMPLAINT</label>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Chief Complaint</label>
                 {isEditingBrief ? (
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={editedComplaint}
                     onChange={(e) => setEditedComplaint(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg font-sans text-sm font-bold text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
                   />
                 ) : (
-                  <p className="font-sans text-base text-brand-teal font-black">{incident.chiefComplaint}</p>
+                  <p className="text-sm text-brand-teal font-semibold">{incident.chiefComplaint}</p>
                 )}
               </div>
               <div>
-                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">LOCATION DETAILS</label>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Location</label>
                 {isEditingBrief ? (
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={editedLocation}
                     onChange={(e) => setEditedLocation(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg font-sans text-sm font-bold text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
                   />
                 ) : (
-                  <div className="flex items-start gap-2.5">
-                    <MapPin size={20} weight="fill" className="text-brand-green mt-0.5" />
-                    <p className="font-sans text-sm font-bold text-slate-600">{incident.locationName}<br/><span className="text-xs text-slate-400 font-normal uppercase tracking-wider">{incident.subCounty}</span></p>
+                  <div className="flex items-start gap-2">
+                    <MapPin size={16} weight="fill" className="text-brand-green mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-brand-teal">{incident.locationName}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{incident.subCounty}</p>
+                    </div>
                   </div>
                 )}
               </div>
-              <div className="col-span-2 bg-slate-50 p-5 rounded-xl border border-slate-100 border-dashed">
-                <label className="font-sans text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-2">CALLER NOTES</label>
+              <div className="col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Caller Notes</label>
                 <p className="italic text-slate-500 text-sm leading-relaxed">"{incident.watcherComments || incident.dispatcherComments || 'No specific notes provided.'}"</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-surface-border bg-[#eaf5fb]">
-              <h3 className="font-sans text-[20px] font-bold text-brand-teal">Patient Information</h3>
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border bg-slate-50">
+              <h3 className="font-semibold text-brand-teal">Patient Information</h3>
             </div>
             <div className="p-6 grid grid-cols-3 gap-4">
               <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">FULL NAME</label>
-                <p className="font-sans text-sm font-bold text-brand-teal">{incident.patientName || 'Unknown'}</p>
+                <label className="text-xs font-medium text-slate-text block mb-1">Full Name</label>
+                <p className="text-sm font-semibold text-brand-teal">{incident.patientName || 'Unknown'}</p>
               </div>
               <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">AGE</label>
-                <p className="font-sans text-sm text-brand-teal">{incident.patientAge || 'Unknown'} yrs</p>
+                <label className="text-xs font-medium text-slate-text block mb-1">Age</label>
+                <p className="text-sm text-brand-teal">{incident.patientAge || 'Unknown'} yrs</p>
               </div>
               <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">GENDER</label>
-                <p className="font-sans text-sm text-brand-teal">{incident.patientGender || 'Unknown'}</p>
+                <label className="text-xs font-medium text-slate-text block mb-1">Gender</label>
+                <p className="text-sm text-brand-teal">{incident.patientGender || 'Unknown'}</p>
               </div>
             </div>
           </div>
 
           {/* Map — incident scene + nearby vehicle positions */}
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm h-72 overflow-hidden relative">
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm h-72 overflow-hidden relative">
             <div className="absolute top-4 left-4 z-[1000] flex gap-2">
-              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded shadow-sm flex items-center gap-2 border border-surface-border">
-                <span className="w-2.5 h-2.5 bg-status-danger rounded-full animate-pulse"></span>
-                <span className="font-sans text-[10px] font-black tracking-widest uppercase">Scene</span>
+              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2 border border-surface-border">
+                <span className="w-2 h-2 bg-status-danger rounded-full animate-pulse"></span>
+                <span className="text-xs font-medium">Scene</span>
               </div>
               {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length > 0 && (
-                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded shadow-sm flex items-center gap-2 border border-surface-border">
-                  <span className="w-2.5 h-2.5 bg-brand-green rounded-full animate-pulse"></span>
-                  <span className="font-sans text-[10px] font-black tracking-widest uppercase">
+                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2 border border-surface-border">
+                  <span className="w-2 h-2 bg-brand-green rounded-full"></span>
+                  <span className="text-xs font-medium">
                     {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length} Units
                   </span>
                 </div>
@@ -307,38 +326,39 @@ export default function IncidentDetailPage() {
 
         {/* Right Column: Dispatch Panel */}
         <div className="col-span-12 lg:col-span-5 flex flex-col gap-6">
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm overflow-hidden flex flex-col max-h-[400px]">
-            <div className="px-6 py-4 border-b border-surface-border bg-[#eaf5fb] flex justify-between items-center">
-              <h3 className="font-sans text-[20px] font-bold text-brand-teal">Nearest Vehicles</h3>
-              <span className="font-sans text-[11px] font-bold tracking-widest text-brand-green uppercase">LIVE RADAR</span>
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[400px]">
+            <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex justify-between items-center">
+              <h3 className="font-semibold text-brand-teal">Nearest Vehicles</h3>
+              <span className="flex items-center gap-1.5 text-xs text-brand-green font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse"></span>
+                Live
+              </span>
             </div>
             <div className="overflow-y-auto">
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-white z-10 border-b border-surface-border">
                   <tr className="bg-slate-50">
-                    <th className="px-6 py-2 font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">UNIT / DISTANCE</th>
-                    <th className="px-6 py-2 font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase">STATUS</th>
-                    <th className="px-6 py-2"></th>
+                    <th className="px-6 py-3 text-xs font-medium text-slate-text">Unit</th>
+                    <th className="px-6 py-3 text-xs font-medium text-slate-text">Status</th>
+                    <th className="px-6 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {(nearestVehicles || []).map(v => (
                     <tr key={v.id} className="border-b border-surface-border hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedVehicleId(v.id)}>
                       <td className="px-6 py-3">
-                        <p className="font-bold text-brand-teal text-sm">{v.registrationNumber}</p>
-                        <p className="text-xs text-slate-text uppercase tracking-wider">{v.id?.substring(0,8) ?? '—'}</p>
+                        <p className="font-semibold text-brand-teal text-sm">{v.registrationNumber}</p>
+                        <p className="text-xs text-slate-text mt-0.5">{v.id?.substring(0,8) ?? '—'}</p>
                       </td>
                       <td className="px-6 py-3">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase ${
-                          !v.isActive
-                            ? 'bg-slate-100 text-slate-400'
-                            : 'bg-brand-green/15 text-brand-green'
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
+                          !v.isActive ? 'bg-slate-100 text-slate-400' : 'bg-brand-green/10 text-brand-green'
                         }`}>
-                          {v.isActive ? 'AVAILABLE' : 'INACTIVE'}
+                          {v.isActive ? 'Available' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right">
-                        <CaretRight size={20} className="text-slate-text" />
+                        <CaretRight size={16} className="text-slate-text" />
                       </td>
                     </tr>
                   ))}
@@ -352,16 +372,16 @@ export default function IncidentDetailPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-surface-border rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-surface-border bg-[#eaf5fb]">
-              <h3 className="font-sans text-[20px] font-bold text-brand-teal">Dispatch Assignment</h3>
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border bg-slate-50">
+              <h3 className="font-semibold text-brand-teal">Dispatch Assignment</h3>
             </div>
             <div className="p-6 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">VEHICLE UNIT</label>
-                  <select 
-                    className="w-full bg-white border border-surface-border rounded px-4 py-2 text-sm focus:ring-2 focus:ring-brand-green outline-none appearance-none"
+                  <label className="text-xs font-medium text-slate-text block mb-1">Vehicle Unit</label>
+                  <select
+                    className="w-full bg-white border border-surface-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-green outline-none"
                     value={selectedVehicleId}
                     onChange={e => setSelectedVehicleId(e.target.value)}
                   >
@@ -372,9 +392,9 @@ export default function IncidentDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">DRIVER</label>
-                  <select 
-                    className="w-full bg-white border border-surface-border rounded px-4 py-2 text-sm outline-none"
+                  <label className="text-xs font-medium text-slate-text block mb-1">Driver</label>
+                  <select
+                    className="w-full bg-white border border-surface-border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-green"
                     value={selectedDriverId}
                     onChange={e => setSelectedDriverId(e.target.value)}
                   >
@@ -385,9 +405,9 @@ export default function IncidentDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">EMT / LEAD</label>
-                  <select 
-                    className="w-full bg-white border border-surface-border rounded px-4 py-2 text-sm outline-none"
+                  <label className="text-xs font-medium text-slate-text block mb-1">EMT / Lead</label>
+                  <select
+                    className="w-full bg-white border border-surface-border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-green"
                     value={selectedEmtId}
                     onChange={e => setSelectedEmtId(e.target.value)}
                   >
@@ -399,21 +419,21 @@ export default function IncidentDetailPage() {
                 </div>
               </div>
               <div>
-                <label className="font-sans text-[11px] font-bold tracking-widest text-slate-text uppercase block mb-1">DISPATCHER COMMENTS</label>
-                <textarea 
-                  className="w-full bg-white border border-surface-border rounded px-4 py-2 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-brand-green" 
-                  placeholder="Enter critical notes for the crew..."
+                <label className="text-xs font-medium text-slate-text block mb-1">Dispatcher Notes</label>
+                <textarea
+                  className="w-full bg-white border border-surface-border rounded-lg px-4 py-2.5 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-brand-green"
+                  placeholder="Enter notes for the crew..."
                   value={dispatcherComments}
                   onChange={e => setDispatcherComments(e.target.value)}
                 ></textarea>
               </div>
-              <button 
+              <button
                 onClick={() => dispatchMutation.mutate()}
                 disabled={!selectedVehicleId || !selectedDriverId || dispatchMutation.isPending || step >= 3}
-                className="w-full bg-brand-green text-white font-sans text-base py-3 rounded-lg font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-brand-green text-white text-sm py-3 rounded-lg font-semibold hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <PaperPlaneRight size={20} weight="fill" />
-                {step >= 3 ? 'ALREADY DISPATCHED' : dispatchMutation.isPending ? 'DISPATCHING...' : 'DISPATCH CREW NOW'}
+                <PaperPlaneRight size={18} weight="fill" />
+                {step >= 3 ? 'Already Dispatched' : dispatchMutation.isPending ? 'Dispatching...' : 'Dispatch Crew'}
               </button>
             </div>
           </div>

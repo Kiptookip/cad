@@ -55,14 +55,9 @@ export default function QueuePage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-4 sm:p-6 lg:p-8 rounded-xl border border-surface-border shadow-sm">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1.5 h-6 bg-brand-green rounded-full"></div>
-            <p className="font-sans text-[11px] font-black tracking-[0.2em] text-slate-text uppercase">Live Incident Management</p>
-          </div>
-          <h1 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-black text-brand-teal tracking-tight uppercase">Tactical Queue</h1>
-        </div>
+      <div className="bg-white p-5 rounded-xl border border-surface-border">
+        <h1 className="text-xl font-bold text-brand-teal">Incident Queue</h1>
+        <p className="text-xs text-slate-text mt-0.5">Live incident management and dispatch tracking</p>
       </div>
 
       {/* Toolbar */}
@@ -107,11 +102,11 @@ export default function QueuePage() {
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead className="bg-slate-50 border-b border-surface-border sticky top-0 z-10">
               <tr>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Operational ID</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Current Status</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Medical Complaint</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Zone / Sector</th>
-                <th className="px-8 py-5 font-sans text-[10px] font-black tracking-[0.2em] text-slate-text uppercase">Response Age</th>
+                <th className="px-6 py-3.5 text-xs font-medium text-slate-text">Case ID</th>
+                <th className="px-6 py-3.5 text-xs font-medium text-slate-text">Status</th>
+                <th className="px-6 py-3.5 text-xs font-medium text-slate-text">Complaint</th>
+                <th className="px-6 py-3.5 text-xs font-medium text-slate-text">Location</th>
+                <th className="px-6 py-3.5 text-xs font-medium text-slate-text">Age</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border/50">
@@ -125,50 +120,50 @@ export default function QueuePage() {
                 </tr>
               ) : (
                 filteredIncidents.map(inc => (
-                  <tr 
-                    key={inc.id} 
-                    className="hover:bg-brand-green/5 cursor-pointer transition-all group"
+                  <tr
+                    key={inc.id}
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
                     onClick={() => navigate(`/incidents/${inc.id}`)}
                   >
-                    <td className="px-8 py-5">
+                    <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="font-black text-brand-teal text-sm uppercase tracking-tight group-hover:text-brand-green transition-colors">{inc.caseNumber}</span>
+                        <span className="font-semibold text-brand-teal text-sm">{inc.caseNumber}</span>
                         {inc.massCasualty && (
                           <span className="mt-1 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-status-danger animate-pulse"></span>
-                            <span className="text-[9px] font-black text-status-danger uppercase tracking-widest">MCI ALERT</span>
+                            <span className="text-xs text-status-danger">MCI</span>
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <span className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-sm border ${
-                        inc.status === 'SUBMITTED' ? 'bg-status-danger/10 text-status-danger border-status-danger/20' :
-                        inc.status === 'DISPATCH_HANDLING' ? 'bg-status-warning/10 text-status-warning border-status-warning/20' :
-                        inc.status === 'DISPATCHED' ? 'bg-status-info/10 text-status-info border-status-info/20' :
-                        'bg-status-success/10 text-status-success border-status-success/20'
+                    <td className="px-6 py-4">
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
+                        inc.status === 'SUBMITTED' ? 'bg-status-danger/10 text-status-danger' :
+                        inc.status === 'DISPATCH_HANDLING' ? 'bg-status-warning/10 text-status-warning' :
+                        inc.status === 'DISPATCHED' ? 'bg-status-info/10 text-status-info' :
+                        'bg-status-success/10 text-status-success'
                       }`}>
                         {inc.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-8 py-5">
-                      <p className="text-sm font-bold text-brand-teal">{inc.chiefComplaint}</p>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-brand-teal">{inc.chiefComplaint}</p>
                       {(inc.watcherComments || inc.preHospitalManagement) && (
-                        <p className="text-[10px] font-bold text-brand-green uppercase tracking-widest mt-0.5">Notes available</p>
+                        <p className="text-xs text-slate-text mt-0.5">Notes available</p>
                       )}
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-6 py-4">
                       <div className="flex flex-col">
-                         <span className="text-sm font-bold text-brand-teal line-clamp-1">{inc.locationName}</span>
-                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{inc.subCounty}</span>
+                        <span className="text-sm text-brand-teal line-clamp-1">{inc.locationName}</span>
+                        <span className="text-xs text-slate-text mt-0.5">{inc.subCounty}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                           Date.now() - new Date(inc.createdAt).getTime() > 1000 * 60 * 10 ? 'bg-status-danger animate-pulse' : 'bg-brand-green'
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          Date.now() - new Date(inc.createdAt).getTime() > 1000 * 60 * 10 ? 'bg-status-danger animate-pulse' : 'bg-brand-green'
                         }`}></div>
-                        <span className="text-sm font-black text-brand-teal tracking-tight">
+                        <span className="text-sm text-brand-teal">
                           {formatDistanceToNow(new Date(inc.createdAt), { addSuffix: true })}
                         </span>
                       </div>

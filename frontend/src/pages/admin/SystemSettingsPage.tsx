@@ -27,9 +27,9 @@ export default function SystemSettingsPage() {
         <div className="md:col-span-2 flex flex-col gap-6">
           {/* Section 1 */}
           <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-surface-border bg-[#f2fbff] flex items-center gap-3">
-              <ShieldStar size={24} className="text-brand-teal" />
-              <h3 className="font-sans text-lg font-bold text-brand-teal">Security & Access</h3>
+            <div className="p-4 border-b border-surface-border bg-slate-50 flex items-center gap-3">
+              <ShieldStar size={20} className="text-slate-text" />
+              <h3 className="font-semibold text-brand-teal">Security & Access</h3>
             </div>
             <div className="p-6 flex flex-col gap-6">
               <div className="flex justify-between items-center">
@@ -61,9 +61,9 @@ export default function SystemSettingsPage() {
 
           {/* Section 2 */}
           <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-surface-border bg-[#f2fbff] flex items-center gap-3">
-              <PlugsConnected size={24} className="text-brand-teal" />
-              <h3 className="font-sans text-lg font-bold text-brand-teal">External Integrations</h3>
+            <div className="p-4 border-b border-surface-border bg-slate-50 flex items-center gap-3">
+              <PlugsConnected size={20} className="text-slate-text" />
+              <h3 className="font-semibold text-brand-teal">External Integrations</h3>
             </div>
             <div className="p-6 flex flex-col gap-6">
               <div className="flex justify-between items-center">
@@ -96,19 +96,19 @@ export default function SystemSettingsPage() {
 
         {/* System Health Widget */}
         <div className="md:col-span-1 flex flex-col gap-6">
-          <div className="bg-[#273236] p-6 rounded-xl shadow-sm flex flex-col gap-4 text-white">
+          <div className="bg-brand-sidebar p-6 rounded-xl flex flex-col gap-4 text-white">
             <div className="flex items-center gap-2 mb-2">
-              <Database size={24} className="text-[#b7f56d]" />
+              <Database size={20} className="text-brand-green" />
               <h3 className="font-sans text-lg font-bold">System Health</h3>
             </div>
             
             <div className="bg-black/20 p-4 rounded-lg flex items-center justify-between">
               <span className="font-sans text-sm text-slate-300">API Gateway</span>
-              <span className="flex items-center gap-1 font-bold text-[#b7f56d] text-sm"><CheckCircle weight="fill" /> Online</span>
+              <span className="flex items-center gap-1 font-medium text-brand-green text-sm"><CheckCircle weight="fill" /> Online</span>
             </div>
             <div className="bg-black/20 p-4 rounded-lg flex items-center justify-between">
-              <span className="font-sans text-sm text-slate-300">Socket Cluster</span>
-              <span className="flex items-center gap-1 font-bold text-[#b7f56d] text-sm"><CheckCircle weight="fill" /> Online</span>
+              <span className="text-sm text-slate-300">Socket Cluster</span>
+              <span className="flex items-center gap-1 font-medium text-brand-green text-sm"><CheckCircle weight="fill" /> Online</span>
             </div>
             <div className="bg-black/20 p-4 rounded-lg flex items-center justify-between">
               <span className="font-sans text-sm text-slate-300">Redis Cache</span>
@@ -125,14 +125,14 @@ export default function SystemSettingsPage() {
             </div>
           </div>
 
-          <div className="bg-[#eaf5fb] rounded-xl p-6 border border-brand-teal/20">
-            <h4 className="font-sans text-[20px] font-bold text-brand-teal mb-4">Data Management</h4>
-            <button 
+          <div className="bg-white rounded-xl p-5 border border-surface-border">
+            <h4 className="font-semibold text-brand-teal mb-4">Data Management</h4>
+            <button
               onClick={() => addNotification({ type: 'success', title: 'Export Complete', message: 'Audit logs exported to CSV.' })}
-              className="w-full flex items-center justify-between p-4 bg-white rounded-lg hover:shadow-md transition-all text-brand-teal border border-surface-border"
+              className="w-full flex items-center justify-between p-3.5 bg-slate-50 rounded-lg hover:bg-slate-100 transition-all text-brand-teal border border-surface-border"
             >
-              <span className="font-sans text-sm font-bold">Export Audit Logs</span>
-              <Download size={20} />
+              <span className="text-sm font-medium">Export Audit Logs</span>
+              <Download size={18} />
             </button>
           </div>
         </div>

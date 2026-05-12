@@ -288,7 +288,7 @@ export default function UserManagementPage() {
 
         {/* Side Panel Widgets */}
         <div className="flex-1 flex flex-col gap-8">
-          <div className="bg-[#f8fafb] rounded-xl p-8 border border-surface-border shadow-sm">
+          <div className="bg-slate-50 rounded-xl p-8 border border-surface-border shadow-sm">
             <div className="flex items-center gap-3 mb-8">
                <div className="bg-brand-teal/10 p-2 rounded-lg">
                   <MagicWand size={22} weight="bold" className="text-brand-teal" />

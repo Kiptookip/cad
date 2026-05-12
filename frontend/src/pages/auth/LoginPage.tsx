@@ -109,7 +109,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   {...register('email')}
-                  className={`w-full h-12 pl-[44px] pr-4 bg-[#f2fbff] border ${errors.email ? 'border-status-danger' : 'border-surface-border'} rounded-lg font-sans text-sm text-brand-teal placeholder:text-slate-text/50 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all`}
+                  className={`w-full h-12 pl-[44px] pr-4 bg-slate-50 border ${errors.email ? 'border-status-danger' : 'border-surface-border'} rounded-lg font-sans text-sm text-brand-teal placeholder:text-slate-text/50 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all`}
                   placeholder="e.g. dispatcher.04@nms.gov"
                   type="email"
                 />
@@ -131,7 +131,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   {...register('passwordRaw')}
-                  className={`w-full h-12 pl-[44px] pr-4 bg-[#f2fbff] border ${errors.passwordRaw ? 'border-status-danger' : 'border-surface-border'} rounded-lg font-sans text-sm text-brand-teal placeholder:text-slate-text/50 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all`}
+                  className={`w-full h-12 pl-[44px] pr-4 bg-slate-50 border ${errors.passwordRaw ? 'border-status-danger' : 'border-surface-border'} rounded-lg font-sans text-sm text-brand-teal placeholder:text-slate-text/50 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all`}
                   placeholder="••••••••••••"
                   type="password"
                 />

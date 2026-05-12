@@ -66,30 +66,26 @@ export default function AddVehicleModal({ isOpen, onClose }: AddVehicleModalProp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Dynamic Backdrop */}
       <div 
-        className="absolute inset-0 bg-[#0f172a]/80 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity"
         onClick={onClose}
       ></div>
 
       {/* Professional Command Modal */}
       <div className="relative bg-white w-full max-w-2xl rounded-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-white/20">
         
-        {/* Header with Gradient Background */}
-        <div className="bg-gradient-to-r from-[#1a2327] via-[#1e293b] to-[#1a2327] p-8 flex justify-between items-center border-b border-brand-teal/20">
-          <div className="flex items-center gap-5">
-            <div className="bg-brand-green shadow-[0_0_20px_rgba(136,194,65,0.4)] p-3 rounded-2xl">
-              <Truck size={32} weight="fill" className="text-[#1a2327]" />
+        <div className="bg-brand-sidebar p-6 flex justify-between items-center border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="bg-brand-green p-2.5 rounded-xl">
+              <Truck size={22} weight="fill" className="text-black" />
             </div>
             <div>
-              <h3 className="text-white font-sans text-2xl font-black uppercase tracking-tight leading-none mb-1">Unit Commissioning</h3>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse"></span>
-                <p className="text-brand-green text-[10px] font-black uppercase tracking-[0.25em]">Secure Terminal: Fleet-Alpha</p>
-              </div>
+              <h3 className="text-white font-semibold text-lg leading-none">Add Vehicle</h3>
+              <p className="text-slate-400 text-xs mt-1">Register a new fleet unit</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
-            className="bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white p-2.5 rounded-xl transition-all border border-white/10 shadow-inner group"
+            className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-all"
           >
             <X size={24} weight="bold" className="group-hover:rotate-90 transition-transform" />
           </button>

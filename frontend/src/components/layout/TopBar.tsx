@@ -41,7 +41,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
 
   return (
     <>
-      <header className={`flex justify-between items-center w-full px-4 sm:px-8 h-[64px] sm:h-[72px] sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-surface-border shadow-sm transition-transform duration-300 ${show ? 'translate-y-0' : '-translate-y-full'}`}>
+      <header className={`flex justify-between items-center w-full px-4 sm:px-8 h-[60px] sticky top-0 z-40 bg-white border-b border-surface-border transition-transform duration-300 ${show ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex items-center gap-3">
           {/* Hamburger button — visible only on mobile */}
           <button 
@@ -50,19 +50,15 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
           >
             <List size={24} weight="bold" />
           </button>
-          <div className="bg-brand-teal p-2 rounded-lg shadow-sm hidden sm:flex">
-            <ShieldCheck size={24} weight="fill" className="text-brand-green" />
+          <div className="bg-brand-sidebar p-1.5 rounded-lg hidden sm:flex">
+            <ShieldCheck size={20} weight="fill" className="text-brand-green" />
           </div>
-          <h1 className="font-sans text-base sm:text-xl font-extrabold text-brand-teal tracking-wide">
+          <h1 className="font-semibold text-brand-teal text-sm">
             <span className="hidden md:inline">Emergency Operations Centre</span>
             <span className="md:hidden">NMS EOC</span>
           </h1>
         </div>
         <div className="flex items-center gap-3 sm:gap-6">
-          <div className="hidden sm:flex items-center gap-2 bg-brand-green/10 border border-brand-green/20 rounded-full px-4 py-1.5 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse shadow-[0_0_8px_rgba(136,194,65,0.8)]"></span>
-            <span className="font-sans text-[11px] font-bold tracking-widest uppercase text-brand-green">Live Sync: Active</span>
-          </div>
           <div className="flex items-center gap-1 sm:gap-2 sm:border-l border-surface-border sm:pl-6">
             <button 
               className="relative text-slate-500 hover:text-brand-teal hover:bg-slate-100 p-2 sm:p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center"
