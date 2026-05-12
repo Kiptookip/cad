@@ -157,7 +157,7 @@ export default function LoginPage() {
                 ENCRYPTED PORTAL V4.2
               </p>
               <p className="font-sans text-[10px] text-slate-text">
-                © 2024 NMS INTERNAL SYSTEMS. PROTECTED BY PROTOCOL 9.
+                © {new Date().getFullYear()} NMS Internal Systems.
               </p>
             </div>
           </footer>
