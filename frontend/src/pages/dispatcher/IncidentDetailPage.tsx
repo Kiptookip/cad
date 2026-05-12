@@ -85,8 +85,7 @@ export default function IncidentDetailPage() {
         vehicleId: selectedVehicleId,
         driverId: selectedDriverId,
         emtId: selectedEmtId,
-        nurseId: '',   // No separate nurse selector — send empty; backend handles optional
-        dispatcherComments,
+        dispatcherComments: dispatcherComments || undefined,
       });
     },
     onSuccess: () => {
