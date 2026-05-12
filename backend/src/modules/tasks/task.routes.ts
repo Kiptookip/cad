@@ -19,7 +19,8 @@ export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       vehicleId: string;
       driverId: string;
       emtId: string;
-      nurseId: string;
+      nurseId?: string;
+      dispatcherComments?: string;
     };
   }>(
     '/',

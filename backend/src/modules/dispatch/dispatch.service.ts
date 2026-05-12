@@ -114,7 +114,15 @@ export class DispatchService {
     });
 
     const vehiclesWithDistance = availableVehicles.map(v => ({
-      ...v,
+      // Normalize Redis payload to match the DB Vehicle shape the frontend expects
+      id: v.vehicleId,
+      registrationNumber: v.registration,
+      agencyId: v.agencyId,
+      isActive: v.isActive,
+      lastLat: v.lat,
+      lastLng: v.lng,
+      lastLocationAt: v.timestamp,
+      // Extra field for UI distance display
       distanceKm: haversineDistance(lat, lng, v.lat, v.lng),
     }));
 

@@ -17,7 +17,8 @@ export class TaskService {
       vehicleId: string;
       driverId: string;
       emtId: string;
-      nurseId: string;
+      nurseId?: string;
+      dispatcherComments?: string;
     }
   ) {
     if (!(<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role)) {
@@ -44,7 +45,10 @@ export class TaskService {
       }),
       this.app.prisma.incident.update({
         where: { id: data.incidentId },
-        data: { status: IncidentStatus.DISPATCHED },
+        data: {
+          status: IncidentStatus.DISPATCHED,
+          ...(data.dispatcherComments ? { dispatcherComments: data.dispatcherComments } : {}),
+        },
       }),
     ]);
 
