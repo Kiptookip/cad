@@ -45,37 +45,6 @@ export default function NewIncidentWizard() {
   const submitted = (location.state as any)?.submitted;
   const submittedCase = (location.state as any)?.caseNumber;
 
-  if (submitted) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] p-8 gap-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-brand-green/10 flex items-center justify-center">
-          <CheckCircle size={36} weight="fill" className="text-brand-green" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-brand-teal">Incident Submitted</h2>
-          {submittedCase && (
-            <p className="text-sm text-slate-text mt-1">Case <span className="font-semibold text-brand-teal">{submittedCase}</span> is now in the dispatch queue.</p>
-          )}
-          <p className="text-xs text-slate-text mt-1">A dispatcher has been notified.</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate('/watcher/new-incident', { replace: true, state: {} })}
-            className="px-5 py-2.5 border border-surface-border text-brand-teal text-sm font-medium rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2"
-          >
-            <PaperPlaneRight size={16} weight="bold" />
-            Submit Another
-          </button>
-          <button
-            onClick={() => navigate('/watcher')}
-            className="px-5 py-2.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
@@ -165,6 +134,38 @@ export default function NewIncidentWizard() {
   });
 
   const isLocationStep = step === 2;
+
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] p-8 gap-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-brand-green/10 flex items-center justify-center">
+          <CheckCircle size={36} weight="fill" className="text-brand-green" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-brand-teal">Incident Submitted</h2>
+          {submittedCase && (
+            <p className="text-sm text-slate-text mt-1">Case <span className="font-semibold text-brand-teal">{submittedCase}</span> is now in the dispatch queue.</p>
+          )}
+          <p className="text-xs text-slate-text mt-1">A dispatcher has been notified.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/watcher/new-incident', { replace: true, state: {} })}
+            className="px-5 py-2.5 border border-surface-border text-brand-teal text-sm font-medium rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2"
+          >
+            <PaperPlaneRight size={16} weight="bold" />
+            Submit Another
+          </button>
+          <button
+            onClick={() => navigate('/watcher')}
+            className="px-5 py-2.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-surface-page">
