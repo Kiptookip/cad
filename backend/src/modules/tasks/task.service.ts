@@ -53,8 +53,8 @@ export class TaskService {
     ]);
 
     // Broadcast to the crew
-    const room = this.app.io.to(`user:${data.driverId}`).to(`user:${data.emtId}`);
-    if (data.nurseId) room.to(`user:${data.nurseId}`);
+    let room = this.app.io.to(`user:${data.driverId}`).to(`user:${data.emtId}`);
+    if (data.nurseId) room = room.to(`user:${data.nurseId}`);
     room.emit('task:assigned', task);
 
     return task;
@@ -126,11 +126,11 @@ export class TaskService {
     }
 
     // Broadcast update to the crew and dispatchers
-    const updateRoom = this.app.io
+    let updateRoom = this.app.io
       .to(`user:${task.driverId}`)
       .to(`user:${task.emtId}`)
       .to(`role:${Role.DISPATCHER}`);
-    if (task.nurseId) updateRoom.to(`user:${task.nurseId}`);
+    if (task.nurseId) updateRoom = updateRoom.to(`user:${task.nurseId}`);
     updateRoom.emit('task:updated', updatedTask);
 
     return updatedTask;
