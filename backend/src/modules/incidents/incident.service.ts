@@ -144,6 +144,43 @@ export class IncidentService {
   }
 
   /**
+   * Updates editable fields on an incident (chiefComplaint, locationName, massCasualty, etc).
+   */
+  async updateIncident(
+    id: string,
+    user: { userId: string; role: Role },
+    data: {
+      chiefComplaint?: string;
+      locationName?: string;
+      massCasualty?: boolean;
+      watcherComments?: string;
+      dispatcherComments?: string;
+    }
+  ) {
+    if (!(<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role)) {
+      throw new ForbiddenError('You do not have permission to update this incident');
+    }
+
+    const incident = await this.app.prisma.incident.findUnique({ where: { id } });
+    if (!incident) throw new NotFoundError('Incident not found');
+
+    const updated = await this.app.prisma.incident.update({
+      where: { id },
+      data: {
+        ...(data.chiefComplaint !== undefined && { chiefComplaint: data.chiefComplaint }),
+        ...(data.locationName !== undefined && { locationName: data.locationName }),
+        ...(data.massCasualty !== undefined && { massCasualty: data.massCasualty }),
+        ...(data.watcherComments !== undefined && { watcherComments: data.watcherComments }),
+        ...(data.dispatcherComments !== undefined && { dispatcherComments: data.dispatcherComments }),
+      },
+    });
+
+    this.app.io.to(`incident:${id}`).emit('incident:update', updated);
+
+    return updated;
+  }
+
+  /**
    * Updates an incident's status.
    */
   async updateIncidentStatus(

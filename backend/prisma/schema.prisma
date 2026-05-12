@@ -202,8 +202,8 @@ model Task {
   emtId String @map("emt_id")
   emt   User   @relation("TaskEmt", fields: [emtId], references: [id])
 
-  nurseId String @map("nurse_id")
-  nurse   User   @relation("TaskNurse", fields: [nurseId], references: [id])
+  nurseId String? @map("nurse_id")
+  nurse   User?   @relation("TaskNurse", fields: [nurseId], references: [id])
 
   @@map("tasks")
 }

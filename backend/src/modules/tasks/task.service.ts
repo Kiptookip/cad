@@ -40,7 +40,7 @@ export class TaskService {
           vehicleId: data.vehicleId,
           driverId: data.driverId,
           emtId: data.emtId,
-          nurseId: data.nurseId ?? '',
+          nurseId: data.nurseId || undefined,
         },
       }),
       this.app.prisma.incident.update({
@@ -53,11 +53,9 @@ export class TaskService {
     ]);
 
     // Broadcast to the crew
-    this.app.io
-      .to(`user:${data.driverId}`)
-      .to(`user:${data.emtId}`)
-      .to(`user:${data.nurseId}`)
-      .emit('task:assigned', task);
+    const room = this.app.io.to(`user:${data.driverId}`).to(`user:${data.emtId}`);
+    if (data.nurseId) room.to(`user:${data.nurseId}`);
+    room.emit('task:assigned', task);
 
     return task;
   }
@@ -128,12 +126,12 @@ export class TaskService {
     }
 
     // Broadcast update to the crew and dispatchers
-    this.app.io
+    const updateRoom = this.app.io
       .to(`user:${task.driverId}`)
       .to(`user:${task.emtId}`)
-      .to(`user:${task.nurseId}`)
-      .to(`role:${Role.DISPATCHER}`)
-      .emit('task:updated', updatedTask);
+      .to(`role:${Role.DISPATCHER}`);
+    if (task.nurseId) updateRoom.to(`user:${task.nurseId}`);
+    updateRoom.emit('task:updated', updatedTask);
 
     return updatedTask;
   }

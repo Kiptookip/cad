@@ -25,6 +25,14 @@ const createIncidentSchema = z.object({
   watcherComments: z.string().optional(),
 });
 
+const updateIncidentSchema = z.object({
+  chiefComplaint: z.string().min(3).optional(),
+  locationName: z.string().min(2).optional(),
+  massCasualty: z.boolean().optional(),
+  watcherComments: z.string().optional(),
+  dispatcherComments: z.string().optional(),
+});
+
 const updateStatusSchema = z.object({
   status: z.nativeEnum(IncidentStatus),
   comments: z.string().optional(),
@@ -81,6 +89,27 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
     async (request, reply) => {
       const incident = await incidentService.getIncidentById(request.params.id);
       return reply.send({ ok: true, data: incident });
+    }
+  );
+
+  /**
+   * PATCH /incidents/:id
+   */
+  app.patch<{ Params: { id: string } }>(
+    '/:id',
+    { preValidation: [requireRole([Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
+    async (request, reply) => {
+      const parsed = updateIncidentSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0].message);
+      }
+
+      const updated = await incidentService.updateIncident(
+        request.params.id,
+        { userId: request.user.userId, role: request.user.role },
+        parsed.data
+      );
+      return reply.send({ ok: true, data: updated });
     }
   );
 
