@@ -29,7 +29,7 @@ export default function UserManagementPage() {
     },
   });
 
-  const { data: agencies } = useQuery({
+  const { data: agencies = [] } = useQuery({
     queryKey: ['admin', 'agencies'],
     queryFn: async () => {
       const res = await api.get('/admin/agencies');

@@ -30,16 +30,14 @@ export default function AddPersonnelModal({ isOpen, onClose }: AddPersonnelModal
   });
 
   // Fetch agencies for the dropdown
-  const { data: agenciesResponse } = useQuery({
+  const { data: agencies = [] } = useQuery({
     queryKey: ['admin', 'agencies'],
     queryFn: async () => {
-      const res = await api.get<{ data: Agency[] }>('/admin/agencies');
-      return res.data;
+      const res = await api.get('/admin/agencies');
+      return res.data.data as Agency[];
     },
     enabled: isOpen,
   });
-
-  const agencies = agenciesResponse?.data || [];
 
   const mutation = useMutation({
     mutationFn: async (data: typeof formData) => {
