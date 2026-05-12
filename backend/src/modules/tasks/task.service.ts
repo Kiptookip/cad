@@ -40,7 +40,7 @@ export class TaskService {
           vehicleId: data.vehicleId,
           driverId: data.driverId,
           emtId: data.emtId,
-          nurseId: data.nurseId,
+          nurseId: data.nurseId ?? '',
         },
       }),
       this.app.prisma.incident.update({
