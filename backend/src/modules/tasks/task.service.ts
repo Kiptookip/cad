@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { TaskStatus, IncidentStatus, Role } from '../../shared/types/index.js';
+import { TaskStatus, IncidentStatus, Role, VehicleStatus } from '../../shared/types/index.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors/AppError.js';
 
 
@@ -31,7 +31,7 @@ export class TaskService {
 
     if (!incident) throw new NotFoundError('Incident not found');
 
-    // Create the task and update incident status in a transaction
+    // Create the task, update incident status, and mark vehicle as BUSY — all atomically
     const [task] = await this.app.prisma.$transaction([
       this.app.prisma.task.create({
         data: {
@@ -49,6 +49,10 @@ export class TaskService {
           status: IncidentStatus.DISPATCHED,
           ...(data.dispatcherComments ? { dispatcherComments: data.dispatcherComments } : {}),
         },
+      }),
+      this.app.prisma.vehicle.update({
+        where: { id: data.vehicleId },
+        data: { status: VehicleStatus.BUSY },
       }),
     ]);
 
@@ -117,7 +121,14 @@ export class TaskService {
       data: updateData,
     });
 
-    // If task is completed or cancelled, update incident if all tasks are resolved
+    // Release the vehicle when the task ends
+    if (newStatus === TaskStatus.COMPLETED || newStatus === TaskStatus.CANCELLED) {
+      await this.app.prisma.vehicle.update({
+        where: { id: task.vehicleId },
+        data: { status: VehicleStatus.READY },
+      });
+    }
+
     if (newStatus === TaskStatus.COMPLETED) {
       await this.app.prisma.incident.update({
         where: { id: task.incidentId },

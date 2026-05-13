@@ -30,6 +30,7 @@ interface VehicleLocation {
   timestamp: string;
   agencyId: string;
   isActive: boolean;
+  dbStatus: 'READY' | 'BUSY' | 'MAINTENANCE';
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -173,7 +174,7 @@ export class TrackingService {
 
   private async mapToInternalFormat(rawVehicles: any[]): Promise<VehicleLocation[]> {
     const dbVehicles = await this.app.prisma.vehicle.findMany({
-      select: { id: true, imei: true, registrationNumber: true, agencyId: true, isActive: true },
+      select: { id: true, imei: true, registrationNumber: true, agencyId: true, isActive: true, status: true },
     });
     const byImei = new Map(dbVehicles.map(v => [v.imei, v]));
     const byReg = new Map(dbVehicles.map(v => [v.registrationNumber?.toUpperCase(), v]));
@@ -221,6 +222,7 @@ export class TrackingService {
         timestamp,
         agencyId: dbV.agencyId,
         isActive: dbV.isActive,
+        dbStatus: (dbV.status as 'READY' | 'BUSY' | 'MAINTENANCE') ?? 'READY',
       });
     }
 

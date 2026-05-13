@@ -4,8 +4,8 @@
  */
 
 // ── Prisma Enums ──────────────────────────────────────────────────────────────
-import { Role, IncidentStatus, TaskStatus, AgencyType } from '../../generated/prisma/index.js';
-export { Role, IncidentStatus, TaskStatus, AgencyType };
+import { Role, IncidentStatus, TaskStatus, AgencyType, VehicleStatus } from '../../generated/prisma/index.js';
+export { Role, IncidentStatus, TaskStatus, AgencyType, VehicleStatus };
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
 // Shape of the payload encoded inside every JWT token

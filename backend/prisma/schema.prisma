@@ -51,6 +51,12 @@ enum TaskStatus {
   CANCELLED
 }
 
+enum VehicleStatus {
+  READY
+  BUSY
+  MAINTENANCE
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Agency
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,6 +202,7 @@ model Task {
   vehicleId String  @map("vehicle_id")
   vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
 
+
   driverId String @map("driver_id")
   driver   User   @relation("TaskDriver", fields: [driverId], references: [id])
 
@@ -213,10 +220,11 @@ model Task {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Vehicle {
-  id                 String    @id @default(uuid())
-  registrationNumber String    @unique @map("registration_number")
-  imei               String    @unique
-  isActive           Boolean   @default(true) @map("is_active")
+  id                 String        @id @default(uuid())
+  registrationNumber String        @unique @map("registration_number")
+  imei               String        @unique
+  status             VehicleStatus @default(READY)
+  isActive           Boolean       @default(true) @map("is_active")
   lastLat            Float?    @map("last_lat")
   lastLng            Float?    @map("last_lng")
   lastLocationAt     DateTime? @map("last_location_at")
