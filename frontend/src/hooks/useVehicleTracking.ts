@@ -96,7 +96,9 @@ export function useVehicleTracking() {
             heading: u.heading ?? 0,
             ignition: u.ignition ?? false,
             timestamp: u.timestamp ?? new Date().toISOString(),
-            dbStatus: existing?.dbStatus ?? 'READY',
+            // Prefer the status from the socket payload (reflects BUSY/READY transitions);
+            // fall back to existing only if the payload omits it (older backend).
+            dbStatus: u.dbStatus ?? existing?.dbStatus ?? 'READY',
             isActive: u.isActive ?? existing?.isActive ?? true,
           });
         }
