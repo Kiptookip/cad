@@ -8,6 +8,7 @@ import IncidentDetailPage from '../pages/dispatcher/IncidentDetailPage';
 import FleetPage from '../pages/dispatcher/FleetPage';
 import CallLogPage from '../pages/dispatcher/CallLogPage';
 import NewIncidentWizard from '../pages/watcher/NewIncidentWizard';
+import WatcherDashboardPage from '../pages/watcher/WatcherDashboardPage';
 import UserManagementPage from '../pages/admin/UserManagementPage';
 import SystemSettingsPage from '../pages/admin/SystemSettingsPage';
 import AnalyticsPage from '../pages/admin/AnalyticsPage';
@@ -94,6 +95,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowed={['SUPER_ADMIN', 'ADMIN', 'DISPATCHER']}>
             <CallLogPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'watcher',
+        element: (
+          <RoleGuard allowed={['SUPER_ADMIN', 'ADMIN', 'WATCHER', 'DISPATCHER']}>
+            <WatcherDashboardPage />
           </RoleGuard>
         ),
       },

@@ -96,8 +96,6 @@ export function useVehicleTracking() {
             heading: u.heading ?? 0,
             ignition: u.ignition ?? false,
             timestamp: u.timestamp ?? new Date().toISOString(),
-            // Prefer the status from the socket payload (reflects BUSY/READY transitions);
-            // fall back to existing only if the payload omits it (older backend).
             dbStatus: u.dbStatus ?? existing?.dbStatus ?? 'READY',
             isActive: u.isActive ?? existing?.isActive ?? true,
           });
@@ -107,8 +105,42 @@ export function useVehicleTracking() {
       setLastUpdatedAt(new Date());
     }
 
+    // Immediate vehicle status update when a task is dispatched or completed —
+    // don't wait for the next 60s Uffizio poll to reflect BUSY/READY.
+    function onTaskAssigned(task: { vehicleId: string }) {
+      setLivePositions(prev => {
+        const next = new Map(prev);
+        for (const [key, v] of next) {
+          if (v.vehicleId === task.vehicleId) {
+            next.set(key, { ...v, dbStatus: 'BUSY' });
+          }
+        }
+        return next;
+      });
+    }
+
+    function onTaskUpdated(task: { vehicleId: string; status: string }) {
+      if (task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+        setLivePositions(prev => {
+          const next = new Map(prev);
+          for (const [key, v] of next) {
+            if (v.vehicleId === task.vehicleId) {
+              next.set(key, { ...v, dbStatus: 'READY' });
+            }
+          }
+          return next;
+        });
+      }
+    }
+
     socket.on('fleet:pos', onFleetPos);
-    return () => { socket.off('fleet:pos', onFleetPos); };
+    socket.on('task:assigned', onTaskAssigned);
+    socket.on('task:updated', onTaskUpdated);
+    return () => {
+      socket.off('fleet:pos', onFleetPos);
+      socket.off('task:assigned', onTaskAssigned);
+      socket.off('task:updated', onTaskUpdated);
+    };
   }, []);
 
   return {

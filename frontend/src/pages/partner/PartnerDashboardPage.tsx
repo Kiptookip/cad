@@ -1,12 +1,14 @@
 import { ShareNetwork, Handshake, CheckCircle, Warning, MagnifyingGlass, Funnel, ArrowSquareOut, MapPin, Users } from '@phosphor-icons/react';
 import { formatDistanceToNow } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { Incident } from '../../types/api';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
 
 export default function PartnerDashboardPage() {
+  const navigate = useNavigate();
   const { addNotification } = useNotificationStore();
 
   const { data: incidentsData, isLoading } = useQuery({
@@ -137,7 +139,7 @@ export default function PartnerDashboardPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => addNotification({ type: 'info', title: 'Case Details', message: `Opened details for ${c.caseNumber}` })}
+                        onClick={() => navigate(`/incidents/${c.id}`)}
                         className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-teal transition-all border border-surface-border"
                       >
                         <ArrowSquareOut size={16} weight="bold" />

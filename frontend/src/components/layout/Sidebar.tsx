@@ -8,7 +8,8 @@ import {
   Gear,
   ChartLineUp,
   Phone,
-  X
+  X,
+  ClipboardText,
 } from '@phosphor-icons/react';
 import { useActiveCalls } from '../../hooks/useActiveCalls';
 import { Link, useLocation } from 'react-router-dom';
@@ -31,6 +32,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { label: 'Personnel', path: '/admin/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { label: 'Analytics', path: '/admin/analytics', icon: ChartLineUp, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { label: 'System Settings', path: '/admin/settings', icon: Gear, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { label: 'My Alerts', path: '/watcher', icon: ClipboardText, roles: ['WATCHER'] },
     { label: 'New Incident', path: '/watcher/new-incident', icon: WarningCircle, roles: ['WATCHER'] },
     { label: 'Partner Dashboard', path: '/partner/dashboard', icon: SquaresFour, roles: ['PARTNER'] },
   ];

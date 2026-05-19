@@ -51,10 +51,19 @@ export default function AppShell() {
       });
     });
 
+    socket.on('task:assigned', (task: { id: string; vehicleId: string; incidentId: string }) => {
+      addNotification({
+        type: 'success',
+        title: 'Crew Dispatched',
+        message: `Task ${task.id.substring(0, 6)} — crew assigned and en route.`,
+      });
+    });
+
     return () => {
       socket.off('connect');
       socket.off('incident:new');
       socket.off('fleet:offline');
+      socket.off('task:assigned');
     };
   }, [addNotification, token, user]);
 
