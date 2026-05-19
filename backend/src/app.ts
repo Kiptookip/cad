@@ -11,6 +11,10 @@ import { incidentRoutes } from './modules/incidents/incident.routes.js';
 import { fleetRoutes } from './modules/fleet/fleet.routes.js';
 import { taskRoutes } from './modules/tasks/task.routes.js';
 import { pbxRoutes } from './modules/pbx/pbx.routes.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
+import { dispatchRoutes } from './modules/dispatch/dispatch.routes.js';
+import { partnerRoutes } from './modules/partner/partner.routes.js';
+import { TrackingService } from './modules/tracking/tracking.service.js';
 
 /**
  * Builds and returns the configured Fastify application instance.
@@ -61,6 +65,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.register(fleetRoutes, { prefix: '/fleet' });
   app.register(taskRoutes, { prefix: '/tasks' });
   app.register(pbxRoutes, { prefix: '/pbx' });
+  app.register(adminRoutes, { prefix: '/admin' });
+  app.register(dispatchRoutes, { prefix: '/dispatch' });
+  app.register(partnerRoutes, { prefix: '/partner' });
+
+  // ── GPS Tracking (Uffizio/Kimii) ──────────────────────────────────────────
+  const trackingService = new TrackingService(app);
+  app.addHook('onReady', async () => { trackingService.start(); });
+  app.addHook('onClose', async () => { trackingService.stop(); });
 
   return app;
 }
