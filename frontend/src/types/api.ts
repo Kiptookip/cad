@@ -94,6 +94,11 @@ export interface Incident {
   patientNhif?: string;
   patientContact?: string;
   nextOfKin?: string;
+  nextOfKinPhone?: string;
+  alertNature?: string;
+  alertNatureDetail?: string;
+  originOfAlert?: string;
+  placeOfReferral?: string;
   massCasualty: boolean;
   massCasualtyCount?: number;
   watcherComments?: string;
