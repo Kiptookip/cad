@@ -145,6 +145,13 @@ model Incident {
   preHospitalManagement String? @map("pre_hospital_management") @db.Text
   hospitalLevelRequired Int?    @map("hospital_level_required")
 
+  // Extended alert/referral fields
+  alertNature      String? @map("alert_nature")
+  alertNatureDetail String? @map("alert_nature_detail")
+  originOfAlert    String? @map("origin_of_alert")
+  nextOfKinPhone   String? @map("next_of_kin_phone")
+  placeOfReferral  String? @map("place_of_referral")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

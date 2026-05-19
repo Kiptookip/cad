@@ -20,9 +20,15 @@ const createIncidentSchema = z.object({
   patientNhif: z.string().optional(),
   patientContact: z.string().optional(),
   nextOfKin: z.string().optional(),
+  nextOfKinPhone: z.string().optional(),
   massCasualty: z.boolean().optional(),
   massCasualtyCount: z.number().int().positive().optional(),
   watcherComments: z.string().optional(),
+  preHospitalManagement: z.string().optional(),
+  alertNature: z.string().optional(),
+  alertNatureDetail: z.string().optional(),
+  originOfAlert: z.string().optional(),
+  placeOfReferral: z.string().optional(),
 });
 
 const updateIncidentSchema = z.object({

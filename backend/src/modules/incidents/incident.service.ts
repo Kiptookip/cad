@@ -37,9 +37,15 @@ export class IncidentService {
       patientNhif?: string;
       patientContact?: string;
       nextOfKin?: string;
+      nextOfKinPhone?: string;
       massCasualty?: boolean;
       massCasualtyCount?: number;
       watcherComments?: string;
+      preHospitalManagement?: string;
+      alertNature?: string;
+      alertNatureDetail?: string;
+      originOfAlert?: string;
+      placeOfReferral?: string;
     }
   ) {
     const caseNumber = this.generateCaseNumber();
@@ -66,9 +72,15 @@ export class IncidentService {
         patientNhif: data.patientNhif,
         patientContact: data.patientContact,
         nextOfKin: data.nextOfKin,
+        nextOfKinPhone: data.nextOfKinPhone,
         massCasualty: data.massCasualty ?? false,
         massCasualtyCount: data.massCasualtyCount,
         watcherComments: data.watcherComments,
+        preHospitalManagement: data.preHospitalManagement,
+        alertNature: data.alertNature,
+        alertNatureDetail: data.alertNatureDetail,
+        originOfAlert: data.originOfAlert,
+        placeOfReferral: data.placeOfReferral,
         assignedAgencyId: user.agencyId,
         watcherId: user.userId,
       },
