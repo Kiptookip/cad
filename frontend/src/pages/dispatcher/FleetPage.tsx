@@ -28,6 +28,7 @@ export default function FleetPage() {
   const [isModalOpen, setIsModalOpen]     = useState(false);
   const [focusPos, setFocusPos]           = useState<[number, number] | undefined>();
   const [selected, setSelected]           = useState<Vehicle | null>(null);
+  const [isFullscreen, setIsFullscreen]   = useState(false);
 
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
@@ -375,7 +376,7 @@ export default function FleetPage() {
                   Live
                 </span>
               </div>
-              <div className="flex-1 min-h-44 rounded-lg overflow-hidden border border-white/10 mb-4">
+              <div className="flex-1 min-h-72 rounded-lg overflow-hidden border border-white/10 mb-4">
                 <Map
                   center={[-1.2921, 36.8219]}
                   zoom={11}
@@ -391,7 +392,7 @@ export default function FleetPage() {
                 {movingCount} unit{movingCount !== 1 ? 's' : ''} currently moving across the metropolitan area.
               </p>
               <button
-                onClick={() => addNotification({ type: 'info', title: 'Map', message: 'Full-screen map view.' })}
+                onClick={() => setIsFullscreen(true)}
                 className="w-full py-2.5 border border-brand-green/30 text-brand-green text-sm font-semibold rounded-lg hover:bg-brand-green hover:text-brand-sidebar transition-all"
               >
                 Launch Full Screen Map
@@ -487,6 +488,40 @@ export default function FleetPage() {
       )}
 
       <AddVehicleModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Fullscreen Map Overlay */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between px-6 py-3 bg-brand-sidebar border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <MapTrifold size={18} weight="bold" className="text-brand-green" />
+              <span className="font-semibold text-white text-sm">Live Fleet Map</span>
+              <span className="flex items-center gap-1 text-xs font-bold text-brand-green ml-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
+                Live
+              </span>
+            </div>
+            <button
+              onClick={() => setIsFullscreen(false)}
+              className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+            >
+              <X size={20} weight="bold" />
+            </button>
+          </div>
+          <div className="flex-1">
+            <Map
+              center={[-1.2921, 36.8219]}
+              zoom={11}
+              vehicleMarkers={liveVehicles}
+              layerType="dark"
+              showLiveBadge
+              showLegend
+              focusPosition={focusPos}
+              lastUpdatedAt={lastUpdatedAt}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

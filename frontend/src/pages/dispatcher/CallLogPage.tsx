@@ -297,7 +297,7 @@ export default function CallLogPage() {
             <p className="text-xs text-slate-text mb-3">Enter the case number to link this call record to an incident.</p>
             <input
               type="text"
-              placeholder="e.g. NMS-2026-001"
+              placeholder="e.g. EOC-2026-001"
               autoFocus
               value={caseNumber}
               onChange={e => setCaseNumber(e.target.value)}

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork } from '@phosphor-icons/react';
 import api from '../../api/client';
-import { Incident, Vehicle, User } from '../../types/api';
+import { Incident, Vehicle, User, AuditLog } from '../../types/api';
+import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { LiveVehicle } from '../../hooks/useVehicleTracking';
+import { socket } from '../../lib/socket';
 
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,8 +23,14 @@ export default function IncidentDetailPage() {
   const [isEditingBrief, setIsEditingBrief] = useState(false);
   const [editedComplaint, setEditedComplaint] = useState('');
   const [editedLocation, setEditedLocation] = useState('');
+  const [editedPlaceOfReferral, setEditedPlaceOfReferral] = useState('');
+  const [editedDispatcherChallenges, setEditedDispatcherChallenges] = useState('');
+  const [showAuditLog, setShowAuditLog] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveReason, setResolveReason] = useState('');
+  const [showAssignPartnerModal, setShowAssignPartnerModal] = useState(false);
+  const [selectedPartnerAgencyId, setSelectedPartnerAgencyId] = useState('');
+  const [partnerAssignReason, setPartnerAssignReason] = useState('');
   const [dialModal, setDialModal] = useState<{ number: string } | null>(null);
   const [dialExt, setDialExt] = useState('');
 
@@ -34,9 +42,20 @@ export default function IncidentDetailPage() {
       const data = res.data.data as Incident;
       setEditedComplaint(data.chiefComplaint);
       setEditedLocation(data.locationName);
+      setEditedPlaceOfReferral(data.placeOfReferral ?? '');
+      setEditedDispatcherChallenges(data.dispatcherChallenges ?? '');
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: auditLog = [] } = useQuery({
+    queryKey: ['incident', id, 'audit-log'],
+    queryFn: async () => {
+      const res = await api.get(`/incidents/${id}/audit-log`);
+      return res.data.data as AuditLog[];
+    },
+    enabled: !!id && showAuditLog,
   });
 
   // Update Incident Mutation
@@ -72,14 +91,43 @@ export default function IncidentDetailPage() {
     enabled: !!incident,
   });
 
-  // Fetch available personnel (DRIVER, EMT, NURSE roles for crew selection)
-  const { data: personnel } = useQuery({
-    queryKey: ['users', 'personnel'],
+  // Fetch drivers and EMTs separately so each dropdown shows the right role
+  const { data: drivers } = useQuery({
+    queryKey: ['users', 'drivers'],
     queryFn: async () => {
       const res = await api.get('/admin/users?role=DRIVER&limit=100');
       return res.data.data as User[];
     },
   });
+
+  const { data: emts } = useQuery({
+    queryKey: ['users', 'emts'],
+    queryFn: async () => {
+      const res = await api.get('/admin/users?role=EMT&limit=100');
+      return res.data.data as User[];
+    },
+  });
+
+  // Real-time: keep incident fresh when status changes or crew is assigned
+  useEffect(() => {
+    if (!id) return;
+    function onIncidentUpdate(updated: Incident) {
+      if (updated.id !== id) return;
+      queryClient.setQueryData(['incident', id], (old: Incident | undefined) =>
+        old ? { ...old, ...updated } : old
+      );
+    }
+    function onTaskAssigned(task: { incidentId: string }) {
+      if (task.incidentId !== id) return;
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+    }
+    socket.on('incident:update', onIncidentUpdate);
+    socket.on('task:assigned', onTaskAssigned);
+    return () => {
+      socket.off('incident:update', onIncidentUpdate);
+      socket.off('task:assigned', onTaskAssigned);
+    };
+  }, [id, queryClient]);
 
   // Dispatch Mutation — creates a Task (assigns crew to incident)
   const dispatchMutation = useMutation({
@@ -123,6 +171,32 @@ export default function IncidentDetailPage() {
     },
     onError: (err: any) => {
       addNotification({ type: 'error', title: 'Failed to Resolve', message: err?.response?.data?.message || 'Could not resolve the incident.' });
+    },
+  });
+
+  const { data: partnerAgencies = [] } = useQuery({
+    queryKey: ['incidents', 'partner-agencies'],
+    queryFn: async () => {
+      const res = await api.get('/incidents/partner-agencies');
+      return res.data.data as { id: string; name: string; location?: string }[];
+    },
+  });
+
+  const assignPartnerMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/incidents/${id}/assign-partner`, {
+        partnerAgencyId: selectedPartnerAgencyId,
+        reason: partnerAssignReason,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+      setShowAssignPartnerModal(false);
+      setSelectedPartnerAgencyId('');
+      setPartnerAssignReason('');
+      addNotification({ type: 'success', title: 'Assigned', message: 'Case forwarded to partner agency.' });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Failed', message: err?.response?.data?.message || 'Could not assign to partner.' });
     },
   });
 
@@ -175,6 +249,14 @@ export default function IncidentDetailPage() {
           >
             <Printer size={16} weight="bold" />
             Print
+          </button>
+          <button
+            onClick={() => setShowAssignPartnerModal(true)}
+            disabled={incident.status === 'RESOLVED'}
+            className="px-4 py-2 border border-brand-teal/30 text-brand-teal text-sm font-medium rounded-lg hover:bg-brand-teal hover:text-white transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ShareNetwork size={16} weight="bold" />
+            Assign to Partner
           </button>
           <button
             onClick={() => {
@@ -255,7 +337,12 @@ export default function IncidentDetailPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => updateMutation.mutate({ chiefComplaint: editedComplaint, locationName: editedLocation })}
+                    onClick={() => updateMutation.mutate({
+                      chiefComplaint: editedComplaint,
+                      locationName: editedLocation,
+                      placeOfReferral: editedPlaceOfReferral || undefined,
+                      dispatcherChallenges: editedDispatcherChallenges || undefined,
+                    })}
                     disabled={updateMutation.isPending}
                     className="px-4 py-1.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
                   >
@@ -295,6 +382,34 @@ export default function IncidentDetailPage() {
                       <p className="text-xs text-slate-400 mt-0.5">{incident.subCounty}</p>
                     </div>
                   </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Referral Facility</label>
+                {isEditingBrief ? (
+                  <input
+                    type="text"
+                    value={editedPlaceOfReferral}
+                    onChange={e => setEditedPlaceOfReferral(e.target.value)}
+                    placeholder="e.g. Kenyatta National Hospital"
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                  />
+                ) : (
+                  <p className="text-sm text-brand-teal">{incident.placeOfReferral || '—'}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Dispatcher Challenges</label>
+                {isEditingBrief ? (
+                  <input
+                    type="text"
+                    value={editedDispatcherChallenges}
+                    onChange={e => setEditedDispatcherChallenges(e.target.value)}
+                    placeholder="e.g. Traffic on Uhuru Highway"
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                  />
+                ) : (
+                  <p className="text-sm text-brand-teal">{incident.dispatcherChallenges || '—'}</p>
                 )}
               </div>
               <div className="col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
@@ -345,43 +460,6 @@ export default function IncidentDetailPage() {
             </div>
           </div>
 
-          {/* Map — incident scene + nearby vehicle positions */}
-          <div className="bg-white border border-surface-border rounded-xl shadow-sm h-72 overflow-hidden relative">
-            <div className="absolute top-4 left-4 z-[1000] flex gap-2">
-              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2 border border-surface-border">
-                <span className="w-2 h-2 bg-status-danger rounded-full animate-pulse"></span>
-                <span className="text-xs font-medium">Scene</span>
-              </div>
-              {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length > 0 && (
-                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2 border border-surface-border">
-                  <span className="w-2 h-2 bg-brand-green rounded-full"></span>
-                  <span className="text-xs font-medium">
-                    {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length} Units
-                  </span>
-                </div>
-              )}
-            </div>
-            <Map
-              center={[incident.lat || -1.2921, incident.lng || 36.8219]}
-              zoom={14}
-              markers={[{ id: incident.id, lat: incident.lat || -1.2921, lng: incident.lng || 36.8219, title: incident.caseNumber, type: 'incident' }]}
-              vehicleMarkers={(nearestVehicles ?? [])
-                .filter(v => v.lastLat && v.lastLng)
-                .map((v): LiveVehicle => ({
-                  vehicleId: v.id,
-                  imei: v.imei,
-                  registration: v.registrationNumber,
-                  lat: v.lastLat!,
-                  lng: v.lastLng!,
-                  speed: 0,
-                  heading: 0,
-                  ignition: v.status !== 'MAINTENANCE',
-                  timestamp: v.lastLocationAt ?? new Date().toISOString(),
-                  dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
-                  isActive: v.isActive,
-                }))}
-            />
-          </div>
         </div>
 
         {/* Right Column: Dispatch Panel */}
@@ -459,7 +537,7 @@ export default function IncidentDetailPage() {
                     onChange={e => setSelectedDriverId(e.target.value)}
                   >
                     <option value="">Select driver...</option>
-                    {(personnel || []).map(p => (
+                    {(drivers || []).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
@@ -472,7 +550,7 @@ export default function IncidentDetailPage() {
                     onChange={e => setSelectedEmtId(e.target.value)}
                   >
                     <option value="">Select EMT...</option>
-                    {(personnel || []).map(p => (
+                    {(emts || []).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
@@ -489,7 +567,7 @@ export default function IncidentDetailPage() {
               </div>
               <button
                 onClick={() => dispatchMutation.mutate()}
-                disabled={!selectedVehicleId || !selectedDriverId || dispatchMutation.isPending || step >= 3}
+                disabled={!selectedVehicleId || !selectedDriverId || !selectedEmtId || dispatchMutation.isPending || step >= 3}
                 className="w-full bg-brand-green text-white text-sm py-3 rounded-lg font-semibold hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <PaperPlaneRight size={18} weight="fill" />
@@ -498,6 +576,107 @@ export default function IncidentDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Scene Map — full width, tall panel */}
+      <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin size={16} weight="fill" className="text-status-danger" />
+            <h3 className="font-semibold text-brand-teal">Scene Map</h3>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-slate-text">
+              <span className="w-2 h-2 bg-status-danger rounded-full animate-pulse"></span>
+              Scene
+            </div>
+            {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-brand-green font-medium">
+                <span className="w-2 h-2 bg-brand-green rounded-full"></span>
+                {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length} nearby units
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="h-[440px] relative">
+          <Map
+            center={[incident.lat || -1.2921, incident.lng || 36.8219]}
+            zoom={14}
+            markers={[{ id: incident.id, lat: incident.lat || -1.2921, lng: incident.lng || 36.8219, title: incident.caseNumber, type: 'incident' }]}
+            vehicleMarkers={(nearestVehicles ?? [])
+              .filter(v => v.lastLat && v.lastLng)
+              .map((v): LiveVehicle => ({
+                vehicleId: v.id,
+                imei: v.imei,
+                registration: v.registrationNumber,
+                lat: v.lastLat!,
+                lng: v.lastLng!,
+                speed: 0,
+                heading: 0,
+                ignition: v.status !== 'MAINTENANCE',
+                timestamp: v.lastLocationAt ?? new Date().toISOString(),
+                dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
+                isActive: v.isActive,
+              }))}
+          />
+        </div>
+      </div>
+
+      {/* Audit Log */}
+      <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowAuditLog(v => !v)}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <ClockCounterClockwise size={16} weight="bold" className="text-slate-400" />
+            <span className="font-semibold text-brand-teal text-sm">Change History</span>
+            {auditLog.length > 0 && (
+              <span className="text-xs font-bold bg-brand-teal/10 text-brand-teal px-2 py-0.5 rounded-full">{auditLog.length}</span>
+            )}
+          </div>
+          <CaretDown
+            size={16}
+            weight="bold"
+            className={`text-slate-400 transition-transform duration-200 ${showAuditLog ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {showAuditLog && (
+          <div className="border-t border-surface-border divide-y divide-surface-border/50">
+            {auditLog.length === 0 ? (
+              <p className="px-6 py-8 text-center text-sm text-slate-400">No changes recorded yet.</p>
+            ) : auditLog.map(entry => (
+              <div key={entry.id} className="px-6 py-4 flex gap-4">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white ${
+                  entry.action === 'CREATE' ? 'bg-brand-green' :
+                  entry.action === 'STATUS_CHANGE' ? 'bg-brand-teal' :
+                  'bg-slate-400'
+                }`}>
+                  {entry.action === 'CREATE' ? '+' : entry.action === 'STATUS_CHANGE' ? '→' : '✎'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-brand-teal">{entry.user.name}</span>
+                    <span className="text-xs text-slate-400 uppercase tracking-wide">{entry.user.role.replace('_', ' ')}</span>
+                    <span className="ml-auto text-xs text-slate-400 whitespace-nowrap">
+                      {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {entry.action === 'CREATE' && 'Incident created'}
+                    {entry.action === 'STATUS_CHANGE' && `Status changed: ${String(entry.oldValues?.status ?? '')} → ${String(entry.newValues?.status ?? '')}`}
+                    {entry.action === 'UPDATE' && (
+                      Object.keys(entry.newValues ?? {}).map(k =>
+                        `${k}: "${String(entry.oldValues?.[k] ?? '—')}" → "${String(entry.newValues?.[k] ?? '')}"`
+                      ).join(' · ')
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Resolve Modal */}
@@ -532,6 +711,65 @@ export default function IncidentDetailPage() {
               >
                 <CheckCircle size={16} weight="bold" />
                 {resolveMutation.isPending ? 'Resolving...' : 'Mark as Resolved'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign to Partner Modal */}
+      {showAssignPartnerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl border border-surface-border w-full max-w-md mx-4 p-6 flex flex-col gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-brand-teal flex items-center gap-2">
+                <ShareNetwork size={20} weight="fill" className="text-brand-teal" />
+                Assign to Partner
+              </h3>
+              <p className="text-sm text-slate-text mt-1">
+                Forward case <span className="font-semibold text-brand-teal">{incident.caseNumber}</span> to a partner agency for handling.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-text block mb-1.5">Partner Agency</label>
+              <select
+                value={selectedPartnerAgencyId}
+                onChange={e => setSelectedPartnerAgencyId(e.target.value)}
+                className="w-full border border-surface-border rounded-lg px-3 py-2.5 text-sm text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal bg-slate-50"
+              >
+                <option value="">Select a partner agency...</option>
+                {partnerAgencies.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}{a.location ? ` — ${a.location}` : ''}</option>
+                ))}
+              </select>
+              {partnerAgencies.length === 0 && (
+                <p className="text-xs text-slate-400 mt-1">No active partner agencies found.</p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-text block mb-1.5">Reason for Assignment</label>
+              <textarea
+                autoFocus
+                className="w-full border border-surface-border rounded-lg p-3 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-brand-teal transition-all"
+                placeholder="e.g. Patient requires specialist care beyond EOC capacity..."
+                value={partnerAssignReason}
+                onChange={e => setPartnerAssignReason(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowAssignPartnerModal(false); setSelectedPartnerAgencyId(''); setPartnerAssignReason(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => assignPartnerMutation.mutate()}
+                disabled={!selectedPartnerAgencyId || partnerAssignReason.trim().length < 5 || assignPartnerMutation.isPending}
+                className="px-5 py-2 bg-brand-teal text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ShareNetwork size={16} weight="fill" />
+                {assignPartnerMutation.isPending ? 'Assigning...' : 'Forward to Partner'}
               </button>
             </div>
           </div>

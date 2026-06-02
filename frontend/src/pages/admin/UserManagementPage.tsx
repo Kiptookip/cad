@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { 
-  UserPlus, MagnifyingGlass, Faders, DotsThreeVertical, 
-  Download, ClockCounterClockwise, MagicWand, CaretLeft, 
-  CaretRight, TrendUp, ShieldCheck 
+import {
+  UserPlus, MagnifyingGlass, Faders, DotsThreeVertical,
+  Download, ClockCounterClockwise, MagicWand, CaretLeft,
+  CaretRight, TrendUp, ShieldCheck, Check, X as XIcon,
 } from '@phosphor-icons/react';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
 import { User, Agency, PaginatedResponse, Role } from '../../types/api';
 import AddPersonnelModal from '../../components/shared/AddPersonnelModal';
@@ -16,8 +16,28 @@ export default function UserManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
   const [agencyFilter, setAgencyFilter] = useState('ALL');
+  const [actionMenuUserId, setActionMenuUserId] = useState<string | null>(null);
   const { addNotification } = useNotificationStore();
-  
+  const queryClient = useQueryClient();
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      return api.patch(`/admin/users/${userId}`, { isActive });
+    },
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setActionMenuUserId(null);
+      addNotification({
+        type: 'success',
+        title: isActive ? 'User Activated' : 'User Deactivated',
+        message: isActive ? 'Account has been reactivated.' : 'Account has been deactivated.',
+      });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Action Failed', message: err?.response?.data?.message || 'Could not update user status.' });
+    },
+  });
+
   const { data: usersResponse, isLoading } = useQuery({
     queryKey: ['admin', 'users', currentPage, roleFilter, agencyFilter],
     queryFn: async () => {
@@ -48,6 +68,25 @@ export default function UserManagementPage() {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  function exportRosterCSV() {
+    const headers = ['Name', 'Email', 'Role', 'Agency', 'Status', 'Phone'];
+    const rows = users.map(u => [
+      u.name,
+      u.email,
+      u.role,
+      (u as any).agency?.name ?? '',
+      u.isActive ? 'Active' : 'Inactive',
+      u.phone ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Personnel_Roster_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    addNotification({ type: 'success', title: 'Exported', message: 'Personnel roster downloaded.' });
+  }
 
   const getColor = (role: string) => {
     switch (role) {
@@ -154,6 +193,9 @@ export default function UserManagementPage() {
               <option value="DISPATCHER">Dispatcher</option>
               <option value="WATCHER">Watcher</option>
               <option value="PARTNER">Partner</option>
+              <option value="DRIVER">Driver</option>
+              <option value="EMT">EMT</option>
+              <option value="NURSE">Nurse</option>
             </select>
           </div>
           <div className="flex items-center gap-3 flex-1">
@@ -235,13 +277,26 @@ export default function UserManagementPage() {
                             <span className={`font-black text-[11px] uppercase tracking-widest ${u.isActive ? 'text-brand-teal' : 'text-status-danger'}`}>{u.isActive ? 'Active' : 'Deactivated'}</span>
                           </div>
                         </td>
-                        <td className="px-8 py-5 text-right">
-                          <button 
-                            onClick={() => addNotification({ type: 'info', title: 'User Actions', message: `Editing actions for ${u.name}` })}
+                        <td className="px-8 py-5 text-right relative">
+                          <button
+                            onClick={() => setActionMenuUserId(actionMenuUserId === u.id ? null : u.id)}
                             className="p-3 rounded-xl hover:bg-white text-slate-400 hover:text-brand-teal transition-all shadow-sm border border-transparent hover:border-surface-border"
                           >
                             <DotsThreeVertical size={24} weight="bold" />
                           </button>
+                          {actionMenuUserId === u.id && (
+                            <div className="absolute right-8 top-14 z-20 bg-white border border-surface-border rounded-xl shadow-xl py-1 min-w-[180px] text-left">
+                              <button
+                                onClick={() => toggleActiveMutation.mutate({ userId: u.id, isActive: !u.isActive })}
+                                disabled={toggleActiveMutation.isPending}
+                                className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition-all disabled:opacity-50 ${u.isActive ? 'text-status-danger' : 'text-brand-green'}`}
+                              >
+                                {u.isActive
+                                  ? <><XIcon size={16} weight="bold" /> Deactivate Account</>
+                                  : <><Check size={16} weight="bold" /> Reactivate Account</>}
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -296,8 +351,8 @@ export default function UserManagementPage() {
                <h4 className="font-sans text-xl font-black text-brand-teal uppercase tracking-tight">Directives</h4>
             </div>
             <div className="flex flex-col gap-4">
-              <button 
-                onClick={() => addNotification({ type: 'success', title: 'Exporting...', message: 'Personnel roster downloading.' })}
+              <button
+                onClick={exportRosterCSV}
                 className="flex items-center justify-between p-5 bg-white rounded-xl hover:shadow-lg transition-all text-brand-teal border border-surface-border group"
               >
                 <span className="font-black text-[11px] uppercase tracking-widest group-hover:text-brand-green transition-colors">Export Tactical Roster</span>
@@ -323,7 +378,7 @@ export default function UserManagementPage() {
           <div className="relative overflow-hidden rounded-xl border border-brand-teal/30 bg-brand-sidebar shadow-2xl flex-1 min-h-[250px] group p-8 flex flex-col justify-between">
             <div>
               <div className="font-sans text-[10px] font-black tracking-[0.2em] text-brand-green uppercase mb-2">System Info</div>
-              <div className="font-sans text-2xl font-black text-white uppercase tracking-tight">NMS Operations</div>
+              <div className="font-sans text-2xl font-black text-white uppercase tracking-tight">EOC Operations</div>
               <p className="font-sans text-xs font-bold text-slate-400 mt-4 leading-relaxed uppercase tracking-wide">
                 {meta.total} registered personnel across {agencies?.length ?? 1} {agencies?.length === 1 ? 'agency' : 'agencies'}.
               </p>

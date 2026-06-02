@@ -61,14 +61,14 @@ export default function LoginPage() {
           <div className="relative z-20 p-8 flex flex-col justify-between h-full text-white">
             <div className="flex items-center gap-2">
               <Shield size={40} weight="fill" className="text-brand-green" />
-              <span className="font-sans text-[24px] font-bold tracking-tight">NMS</span>
+              <span className="font-sans text-[24px] font-bold tracking-tight">EOC</span>
             </div>
             <div className="max-w-md">
               <h1 className="font-sans text-[32px] font-bold mb-4 leading-tight">
                 Advanced Crisis Response Management
               </h1>
               <p className="font-sans text-base text-white/90">
-                Authorized personnel only. Accessing this portal grants entry to the NMS Internal Emergency Operations Centre infrastructure and real-time response data.
+                Authorized personnel only. Accessing this portal grants entry to the EOC Emergency Operations Centre infrastructure and real-time response data.
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 <input
                   {...register('email')}
                   className={`w-full h-12 pl-[44px] pr-4 bg-slate-50 border ${errors.email ? 'border-status-danger' : 'border-surface-border'} rounded-lg font-sans text-sm text-brand-teal placeholder:text-slate-text/50 focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all`}
-                  placeholder="e.g. dispatcher.04@nms.gov"
+                  placeholder="e.g. dispatcher.04@eoc.go.ke"
                   type="email"
                 />
               </div>
@@ -157,7 +157,7 @@ export default function LoginPage() {
                 ENCRYPTED PORTAL V4.2
               </p>
               <p className="font-sans text-[10px] text-slate-text">
-                © {new Date().getFullYear()} NMS Internal Systems.
+                © {new Date().getFullYear()} EOC Internal Systems.
               </p>
             </div>
           </footer>

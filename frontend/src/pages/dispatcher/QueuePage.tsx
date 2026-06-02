@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { MagnifyingGlass, Funnel, SortAscending } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, SortAscending, SortDescending } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident } from '../../types/api';
 import { socket } from '../../lib/socket';
 import { formatDistanceToNow } from 'date-fns';
-import { useNotificationStore } from '../../stores/notificationStore';
 
 export default function QueuePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { addNotification } = useNotificationStore();
 
   const { data: incidents, isLoading } = useQuery({
     queryKey: ['incidents'],
@@ -46,12 +45,15 @@ export default function QueuePage() {
     };
   }, [queryClient]);
 
-  const filteredIncidents = incidents?.filter(inc => {
-    const matchesSearch = inc.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredIncidents = (incidents?.filter(inc => {
+    const matchesSearch = inc.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           inc.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || inc.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }) || [];
+  }) || []).sort((a, b) => {
+    const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return sortOrder === 'desc' ? diff : -diff;
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
@@ -88,11 +90,15 @@ export default function QueuePage() {
             </select>
           </div>
         </div>
-        <button 
-          onClick={() => addNotification({ type: 'info', title: 'Sort', message: 'Sorting applied.' })}
+        <button
+          onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
           className="flex items-center gap-2 ml-auto text-xs font-black uppercase tracking-widest text-slate-500 hover:text-brand-teal hover:bg-brand-teal/5 border border-surface-border px-6 py-3 rounded-lg transition-all"
+          title={sortOrder === 'desc' ? 'Showing newest first — click for oldest first' : 'Showing oldest first — click for newest first'}
         >
-          <SortAscending size={20} weight="bold" /> Sort Feed
+          {sortOrder === 'desc'
+            ? <SortDescending size={20} weight="bold" />
+            : <SortAscending size={20} weight="bold" />}
+          {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
         </button>
       </div>
 

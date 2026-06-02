@@ -140,7 +140,7 @@ export default function AddPersonnelModal({ isOpen, onClose }: AddPersonnelModal
                   <input 
                     required
                     type="email" 
-                    placeholder="e.g. j.doe@nms.go.ke"
+                    placeholder="e.g. j.doe@eoc.go.ke"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                     className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 font-sans text-sm font-black text-brand-teal focus:ring-4 focus:ring-brand-teal/10 focus:border-brand-teal outline-none transition-all shadow-sm placeholder:text-slate-300"

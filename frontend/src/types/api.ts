@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'WATCHER' | 'DISPATCHER' | 'PARTNER';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'WATCHER' | 'DISPATCHER' | 'PARTNER' | 'DRIVER' | 'EMT' | 'NURSE';
 export type AgencyType = 'INTERNAL' | 'PARTNER';
 
 export type IncidentStatus =
@@ -103,7 +103,10 @@ export interface Incident {
   massCasualtyCount?: number;
   watcherComments?: string;
   dispatcherComments?: string;
+  dispatcherChallenges?: string;
   preHospitalManagement?: string;
+  partnerNotes?: string;
+  pcrUrl?: string;
   createdAt: string;
   watcher?: Pick<User, 'id' | 'name' | 'phone'>;
   dispatcher?: Pick<User, 'id' | 'name' | 'phone'>;
@@ -126,6 +129,17 @@ export interface Task {
   emtId: string;
   nurseId: string;
   driver?: Pick<User, 'name' | 'phone'>;
+}
+
+export interface AuditLog {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'STATUS_CHANGE' | string;
+  subjectType: string;
+  subjectId: string;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
+  createdAt: string;
+  user: Pick<User, 'id' | 'name' | 'role'>;
 }
 
 export type CallDirection = 'INBOUND' | 'OUTBOUND' | 'INTERNAL';

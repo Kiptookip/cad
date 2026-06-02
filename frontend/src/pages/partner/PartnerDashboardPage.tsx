@@ -139,7 +139,7 @@ export default function PartnerDashboardPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => navigate(`/incidents/${c.id}`)}
+                        onClick={() => navigate(`/partner/incidents/${c.id}`)}
                         className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-teal transition-all border border-surface-border"
                       >
                         <ArrowSquareOut size={16} weight="bold" />
