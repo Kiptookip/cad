@@ -33,7 +33,7 @@ interface VehicleLocation {
   dbStatus: 'READY' | 'BUSY' | 'MAINTENANCE';
 }
 
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 65_000;
 // Refresh the auth code 5 min before we assume it expires (default: 23h)
 const TOKEN_TTL_MS = 23 * 60 * 60 * 1000;
 

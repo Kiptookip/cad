@@ -70,6 +70,22 @@ export const dispatchRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
   );
 
   /**
+   * GET /dispatch/vehicles
+   * All vehicles with latest location — accessible to dispatchers for fleet map.
+   */
+  app.get(
+    '/vehicles',
+    { preValidation: [requireRole(assignRoles)] },
+    async (_request, reply) => {
+      const vehicles = await app.prisma.vehicle.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { agency: { select: { id: true, name: true } } },
+      });
+      return reply.send({ ok: true, data: vehicles });
+    }
+  );
+
+  /**
    * GET /dispatch/nearest-vehicles?lat=&lng=&limit=
    * Find nearest active vehicles to a coordinate.
    */
