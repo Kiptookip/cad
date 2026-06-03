@@ -37,7 +37,7 @@ export default function FleetPage() {
   const { data: vehicles = [], isLoading } = useQuery({
     queryKey: ['admin', 'vehicles'],
     queryFn: async () => {
-      const res = await api.get('/admin/vehicles');
+      const res = await api.get('/dispatch/vehicles');
       return res.data.data as Vehicle[];
     },
   });

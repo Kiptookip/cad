@@ -35,7 +35,7 @@ export function useVehicleTracking() {
   const { data: vehicles } = useQuery({
     queryKey: ['admin', 'vehicles', 'tracking'],
     queryFn: async () => {
-      const res = await api.get('/admin/vehicles');
+      const res = await api.get('/dispatch/vehicles');
       return (res.data.data ?? res.data) as Vehicle[];
     },
     staleTime: 30_000,

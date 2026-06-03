@@ -9,6 +9,9 @@ const ROLE_ROUTES: Record<Role, string> = {
   DISPATCHER: '/dashboard',
   WATCHER: '/watcher/new-incident',
   PARTNER: '/partner/dashboard',
+  DRIVER: '/dashboard',
+  EMT: '/dashboard',
+  NURSE: '/dashboard',
 };
 
 const ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'DISPATCHER', 'WATCHER', 'PARTNER'];
@@ -19,6 +22,9 @@ const ROLE_COLORS: Record<Role, string> = {
   DISPATCHER: 'bg-status-info',
   WATCHER: 'bg-status-warning',
   PARTNER: 'bg-brand-green',
+  DRIVER: 'bg-slate-500',
+  EMT: 'bg-slate-500',
+  NURSE: 'bg-slate-500',
 };
 
 export default function DevRoleSwitcher() {
