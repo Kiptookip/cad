@@ -190,6 +190,55 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
   );
 
   /**
+   * GET /incidents/nature-options
+   * Returns the full nature → details taxonomy. Auto-seeds defaults on first call.
+   */
+  app.get('/nature-options', async (_request, reply) => {
+    const options = await incidentService.getNatureOptions();
+    return reply.send({ ok: true, data: options });
+  });
+
+  /**
+   * POST /incidents/nature-options
+   * Add a new nature or nature detail. Body: { nature, detail? }
+   */
+  const natureOptionSchema = z.object({
+    nature: z.string().min(2, 'Nature must be at least 2 characters'),
+    detail: z.string().min(2).optional(),
+  });
+
+  app.post('/nature-options', async (request, reply) => {
+    const parsed = natureOptionSchema.safeParse(request.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0].message);
+    await incidentService.createNatureOption(parsed.data.nature, parsed.data.detail);
+    const options = await incidentService.getNatureOptions();
+    return reply.status(201).send({ ok: true, data: options });
+  });
+
+  /**
+   * POST /incidents/:id/close
+   * Any authenticated user can close a case — requires a mandatory reason.
+   */
+  const closeIncidentSchema = z.object({
+    reason: z.string().min(10, 'Please provide a detailed reason (at least 10 characters)'),
+  });
+
+  app.post<{ Params: { id: string } }>(
+    '/:id/close',
+    async (request, reply) => {
+      const parsed = closeIncidentSchema.safeParse(request.body);
+      if (!parsed.success) throw new BadRequestError(parsed.error.issues[0].message);
+
+      const updated = await incidentService.closeIncident(
+        request.params.id,
+        { userId: request.user.userId, role: request.user.role },
+        parsed.data.reason
+      );
+      return reply.send({ ok: true, data: updated });
+    }
+  );
+
+  /**
    * PATCH /incidents/:id/status
    */
   app.patch<{ Params: { id: string } }>(

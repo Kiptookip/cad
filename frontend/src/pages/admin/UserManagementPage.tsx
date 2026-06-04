@@ -3,16 +3,22 @@ import {
   UserPlus, MagnifyingGlass, Faders, DotsThreeVertical,
   Download, ClockCounterClockwise, MagicWand, CaretLeft,
   CaretRight, TrendUp, ShieldCheck, Check, X as XIcon,
+  PencilSimple, Buildings,
 } from '@phosphor-icons/react';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
 import { User, Agency, PaginatedResponse, Role } from '../../types/api';
 import AddPersonnelModal from '../../components/shared/AddPersonnelModal';
+import PartnerOnboardingModal from '../../components/shared/PartnerOnboardingModal';
 
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
+  const [editRoleTarget, setEditRoleTarget] = useState<{ id: string; name: string; role: Role; agencyId: string } | null>(null);
+  const [editRoleValue, setEditRoleValue] = useState<Role>('WATCHER');
+  const [editAgencyValue, setEditAgencyValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
   const [agencyFilter, setAgencyFilter] = useState('ALL');
@@ -35,6 +41,19 @@ export default function UserManagementPage() {
     },
     onError: (err: any) => {
       addNotification({ type: 'error', title: 'Action Failed', message: err?.response?.data?.message || 'Could not update user status.' });
+    },
+  });
+
+  const editRoleMutation = useMutation({
+    mutationFn: ({ userId, role, agencyId }: { userId: string; role: Role; agencyId?: string }) =>
+      api.patch(`/admin/users/${userId}`, { role, ...(agencyId ? { agencyId } : {}) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setEditRoleTarget(null);
+      addNotification({ type: 'success', title: 'Role Updated', message: 'User role has been changed.' });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Update Failed', message: err?.response?.data?.message || 'Could not update role.' });
     },
   });
 
@@ -110,13 +129,22 @@ export default function UserManagementPage() {
           </div>
           <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-black text-brand-teal tracking-tight uppercase">Personnel Roster</h2>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="w-full sm:w-auto bg-brand-green hover:bg-brand-sidebar hover:text-white text-brand-teal font-black text-xs uppercase tracking-widest px-6 py-3 sm:px-8 sm:py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-md active:scale-95"
-        >
-          <UserPlus size={22} weight="bold" />
-          Enlist Personnel
-        </button>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => setIsPartnerModalOpen(true)}
+            className="flex-1 sm:flex-none bg-brand-teal/10 hover:bg-brand-teal text-brand-teal hover:text-white font-black text-xs uppercase tracking-widest px-5 py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-brand-teal/30"
+          >
+            <MagicWand size={18} weight="bold" />
+            Onboard Partner
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex-1 sm:flex-none bg-brand-green hover:bg-brand-sidebar hover:text-white text-brand-teal font-black text-xs uppercase tracking-widest px-6 py-3 sm:px-8 sm:py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-md active:scale-95"
+          >
+            <UserPlus size={22} weight="bold" />
+            Enlist Personnel
+          </button>
+        </div>
       </div>
 
       {/* Dashboard Stats */}
@@ -285,7 +313,19 @@ export default function UserManagementPage() {
                             <DotsThreeVertical size={24} weight="bold" />
                           </button>
                           {actionMenuUserId === u.id && (
-                            <div className="absolute right-8 top-14 z-20 bg-white border border-surface-border rounded-xl shadow-xl py-1 min-w-[180px] text-left">
+                            <div className="absolute right-8 top-14 z-20 bg-white border border-surface-border rounded-xl shadow-xl py-1 min-w-[190px] text-left">
+                              <button
+                                onClick={() => {
+                                  setEditRoleTarget({ id: u.id, name: u.name, role: u.role, agencyId: u.agencyId });
+                                  setEditRoleValue(u.role);
+                                  setEditAgencyValue(u.agencyId);
+                                  setActionMenuUserId(null);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition-all text-brand-teal"
+                              >
+                                <PencilSimple size={16} weight="bold" /> Edit Role
+                              </button>
+                              <div className="border-t border-slate-100 my-0.5" />
                               <button
                                 onClick={() => toggleActiveMutation.mutate({ userId: u.id, isActive: !u.isActive })}
                                 disabled={toggleActiveMutation.isPending}
@@ -400,9 +440,95 @@ export default function UserManagementPage() {
         </div>
       </div>
       
-      <AddPersonnelModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+      {/* Edit Role Modal */}
+      {editRoleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditRoleTarget(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-brand-sidebar px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PencilSimple size={18} weight="fill" className="text-brand-green" />
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Edit Role</p>
+                  <p className="text-sm font-bold text-white">{editRoleTarget.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditRoleTarget(null)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all">
+                <XIcon size={16} weight="bold" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">New Role</label>
+                <select
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal bg-white"
+                  value={editRoleValue}
+                  onChange={e => setEditRoleValue(e.target.value as Role)}
+                >
+                  {(['SUPER_ADMIN', 'ADMIN', 'DISPATCHER', 'WATCHER', 'PARTNER', 'DRIVER', 'EMT', 'NURSE'] as Role[]).map(r => (
+                    <option key={r} value={r}>{r.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+
+              {editRoleValue === 'PARTNER' && (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    <Buildings size={10} className="inline mr-1" />Assign to Partner Agency
+                  </label>
+                  <select
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal bg-white"
+                    value={editAgencyValue}
+                    onChange={e => setEditAgencyValue(e.target.value)}
+                  >
+                    <option value={editRoleTarget.agencyId}>Keep current agency</option>
+                    {agencies.filter(a => a.type === 'PARTNER').map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  {agencies.filter(a => a.type === 'PARTNER').length === 0 && (
+                    <p className="text-xs text-slate-400 mt-1">No partner agencies yet — use "Onboard Partner" to create one first.</p>
+                  )}
+                </div>
+              )}
+
+              {editRoleValue !== editRoleTarget.role && (
+                <div className="bg-status-warning/5 border border-status-warning/20 rounded-xl px-4 py-2.5 text-xs text-status-warning font-medium">
+                  Role will change from <span className="font-bold">{editRoleTarget.role.replace('_', ' ')}</span> → <span className="font-bold">{editRoleValue.replace('_', ' ')}</span>. User gets new permissions on next login.
+                </div>
+              )}
+            </div>
+            <div className="px-5 pb-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setEditRoleTarget(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-500 text-sm font-bold rounded-xl hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => editRoleMutation.mutate({
+                  userId: editRoleTarget.id,
+                  role: editRoleValue,
+                  agencyId: editRoleValue === 'PARTNER' && editAgencyValue !== editRoleTarget.agencyId ? editAgencyValue : undefined,
+                })}
+                disabled={editRoleMutation.isPending || editRoleValue === editRoleTarget.role}
+                className="flex items-center gap-2 px-5 py-2 bg-brand-teal text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check size={14} weight="bold" />
+                {editRoleMutation.isPending ? 'Saving…' : 'Save Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AddPersonnelModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
+      <PartnerOnboardingModal
+        isOpen={isPartnerModalOpen}
+        onClose={() => setIsPartnerModalOpen(false)}
       />
     </div>
   );

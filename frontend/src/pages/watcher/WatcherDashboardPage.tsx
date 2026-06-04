@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  PlusCircle, ClipboardText, CheckCircle, Warning, Clock, Ambulance,
+  PlusCircle, ClipboardText, CheckCircle, Warning, Clock, Ambulance, XCircle,
 } from '@phosphor-icons/react';
+import EndCaseModal from '../../components/shared/EndCaseModal';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../api/client';
 import { Incident, IncidentStatus } from '../../types/api';
@@ -24,6 +25,7 @@ export default function WatcherDashboardPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore(s => s.user);
   const [statusFilter, setStatusFilter] = useState<IncidentStatus | 'ALL'>('ALL');
+  const [endCaseTarget, setEndCaseTarget] = useState<Incident | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['watcher', 'incidents', user?.id],
@@ -150,18 +152,19 @@ export default function WatcherDashboardPage() {
                 <th className="px-5 py-3.5 text-xs font-semibold text-slate-text">Location</th>
                 <th className="px-5 py-3.5 text-xs font-semibold text-slate-text">Reported</th>
                 <th className="px-5 py-3.5 text-xs font-semibold text-slate-text">Status</th>
+                <th className="px-5 py-3.5 text-xs font-semibold text-slate-text"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border/50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center">
+                  <td colSpan={6} className="px-5 py-12 text-center">
                     <div className="w-8 h-8 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center">
+                  <td colSpan={6} className="px-5 py-16 text-center">
                     <ClipboardText size={40} weight="duotone" className="text-slate-200 mx-auto mb-3" />
                     <p className="text-sm font-semibold text-slate-400">No incidents yet</p>
                     <p className="text-xs text-slate-300 mt-1">Submitted alerts will appear here</p>
@@ -202,6 +205,17 @@ export default function WatcherDashboardPage() {
                         {badge.label}
                       </span>
                     </td>
+                    <td className="px-5 py-4">
+                      {inc.status !== 'RESOLVED' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setEndCaseTarget(inc); }}
+                          className="flex items-center gap-1.5 text-xs font-bold text-status-danger border border-status-danger/30 px-3 py-1.5 rounded-lg hover:bg-status-danger hover:text-white transition-all"
+                        >
+                          <XCircle size={13} weight="fill" />
+                          End Case
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -209,6 +223,15 @@ export default function WatcherDashboardPage() {
           </table>
         </div>
       </div>
+      {endCaseTarget && (
+        <EndCaseModal
+          incidentId={endCaseTarget.id}
+          caseNumber={endCaseTarget.caseNumber}
+          isOpen={!!endCaseTarget}
+          onClose={() => setEndCaseTarget(null)}
+          invalidateKeys={[['watcher', 'incidents', user?.id]]}
+        />
+      )}
     </div>
   );
 }

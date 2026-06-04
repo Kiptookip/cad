@@ -63,13 +63,17 @@ export class AdminService {
     });
   }
 
-  async updateUser(id: string, data: { name?: string; phone?: string; role?: Role; isActive?: boolean }) {
+  async updateUser(id: string, data: { name?: string; phone?: string; role?: Role; isActive?: boolean; agencyId?: string }) {
     const user = await this.app.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundError('User');
+    if (data.agencyId) {
+      const agency = await this.app.prisma.agency.findUnique({ where: { id: data.agencyId } });
+      if (!agency) throw new BadRequestError('Invalid agency ID');
+    }
     return this.app.prisma.user.update({
       where: { id },
       data,
-      select: { id: true, name: true, email: true, phone: true, role: true, isActive: true },
+      select: { id: true, name: true, email: true, phone: true, role: true, isActive: true, agencyId: true },
     });
   }
 

@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, MapPin, User, Phone, CheckCircle, Ambulance,
-  NotePencil, Link as LinkIcon, ClipboardText,
+  NotePencil, Link as LinkIcon, ClipboardText, XCircle,
 } from '@phosphor-icons/react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../api/client';
 import { Incident, IncidentStatus } from '../../types/api';
 import { useNotificationStore } from '../../stores/notificationStore';
+import EndCaseModal from '../../components/shared/EndCaseModal';
 
 const STATUS_BADGE: Record<IncidentStatus, { label: string; cls: string }> = {
   DRAFT:             { label: 'Draft',      cls: 'bg-slate-100 text-slate-500' },
@@ -27,6 +28,7 @@ export default function PartnerCaseDetailPage() {
 
   const [notes, setNotes] = useState('');
   const [pcrUrl, setPcrUrl] = useState('');
+  const [showEndCase, setShowEndCase] = useState(false);
 
   const { data: incident, isLoading } = useQuery({
     queryKey: ['partner', 'incident', id],
@@ -104,6 +106,15 @@ export default function PartnerCaseDetailPage() {
           >
             <CheckCircle size={16} weight="fill" />
             {acceptMutation.isPending ? 'Accepting...' : 'Accept Case'}
+          </button>
+        )}
+        {!isResolved && (
+          <button
+            onClick={() => setShowEndCase(true)}
+            className="px-4 py-2 bg-status-danger text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
+          >
+            <XCircle size={16} weight="fill" />
+            End Case
           </button>
         )}
       </div>
@@ -273,6 +284,15 @@ export default function PartnerCaseDetailPage() {
           )}
         </div>
       </div>
+
+      <EndCaseModal
+        incidentId={incident.id}
+        caseNumber={incident.caseNumber}
+        isOpen={showEndCase}
+        onClose={() => setShowEndCase(false)}
+        onSuccess={() => navigate(-1)}
+        invalidateKeys={[['partner', 'incidents'], ['partner', 'incident', id]]}
+      />
     </div>
   );
 }

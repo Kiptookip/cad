@@ -23,6 +23,7 @@ const updateUserSchema = z.object({
   phone: z.string().optional(),
   role: z.nativeEnum(Role).optional(),
   isActive: z.boolean().optional(),
+  agencyId: z.string().uuid().optional(),
 });
 
 const createVehicleSchema = z.object({

@@ -107,6 +107,8 @@ export interface Incident {
   preHospitalManagement?: string;
   partnerNotes?: string;
   pcrUrl?: string;
+  closureReason?: string;
+  closedById?: string;
   createdAt: string;
   watcher?: Pick<User, 'id' | 'name' | 'phone'>;
   dispatcher?: Pick<User, 'id' | 'name' | 'phone'>;

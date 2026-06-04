@@ -156,6 +156,10 @@ model Incident {
   partnerNotes String? @map("partner_notes") @db.Text
   pcrUrl       String? @map("pcr_url")
 
+  // Case closure
+  closureReason String? @map("closure_reason") @db.Text
+  closedById    String? @map("closed_by_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -332,6 +336,20 @@ model ForwardingLog {
   toAgency   Agency @relation("ForwardingToAgency", fields: [toAgencyId], references: [id])
 
   @@map("forwarding_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IncidentNatureOption — user-extensible nature/detail taxonomy
+// ─────────────────────────────────────────────────────────────────────────────
+
+model IncidentNatureOption {
+  id        String   @id @default(uuid())
+  nature    String   // e.g. "Trauma"
+  detail    String?  // e.g. "Road Traffic Accident" — null = top-level nature
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([nature, detail])
+  @@map("incident_nature_options")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

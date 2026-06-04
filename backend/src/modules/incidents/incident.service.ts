@@ -340,4 +340,95 @@ export class IncidentService {
 
     return updated;
   }
+
+  async closeIncident(id: string, user: { userId: string; role: Role }, reason: string) {
+    const incident = await this.app.prisma.incident.findUnique({ where: { id } });
+    if (!incident) throw new NotFoundError('Incident not found');
+    if (incident.status === IncidentStatus.RESOLVED) {
+      throw new BadRequestError('This incident is already closed');
+    }
+
+    const updated = await this.app.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.RESOLVED,
+        closureReason: reason,
+        closedById: user.userId,
+      },
+    });
+
+    await this.writeAudit({
+      userId: user.userId,
+      action: 'CLOSE',
+      subjectId: id,
+      oldValues: { status: incident.status },
+      newValues: { status: IncidentStatus.RESOLVED, closureReason: reason },
+    });
+
+    this.app.io.to(`incident:${id}`).emit('incident:update', updated);
+    this.app.io
+      .to(`role:${Role.DISPATCHER}`)
+      .to(`role:${Role.ADMIN}`)
+      .to(`role:${Role.SUPER_ADMIN}`)
+      .emit('incident:closed', { id, caseNumber: incident.caseNumber, reason, closedBy: user.role });
+
+    return updated;
+  }
+
+  // ── Nature options (user-extensible taxonomy) ─────────────────────────────
+
+  private readonly SEED_NATURES: Array<{ nature: string; details: string[] }> = [
+    { nature: 'Trauma',      details: ['Road Traffic Accident', 'Fall', 'Assault/Violence', 'Industrial Accident', 'Sports Injury', 'Other'] },
+    { nature: 'Medical',     details: ['Cardiac Arrest', 'Stroke', 'Seizure', 'Respiratory Distress', 'Diabetic Emergency', 'Other'] },
+    { nature: 'Obstetric',   details: ['Labour', 'Post-partum Haemorrhage', 'Eclampsia', 'Miscarriage', 'Other'] },
+    { nature: 'Pediatric',   details: ['Febrile Convulsion', 'Neonatal Emergency', 'Respiratory Distress', 'Trauma', 'Other'] },
+    { nature: 'Psychiatric', details: ['Attempted Suicide', 'Acute Psychosis', 'Aggression', 'Other'] },
+    { nature: 'Burns',       details: ['Chemical', 'Electrical', 'Thermal', 'Other'] },
+    { nature: 'Poisoning',   details: ['Drug Overdose', 'Chemical Ingestion', 'Snake Bite', 'Other'] },
+    { nature: 'Other',       details: ['Other'] },
+  ];
+
+  async getNatureOptions(): Promise<Array<{ nature: string; details: string[] }>> {
+    const rows = await this.app.prisma.incidentNatureOption.findMany({
+      orderBy: [{ nature: 'asc' }, { detail: 'asc' }],
+    });
+
+    // Auto-seed defaults on first use
+    if (rows.length === 0) {
+      const seeds = this.SEED_NATURES.flatMap(({ nature, details }) => [
+        { nature, detail: null },
+        ...details.map(detail => ({ nature, detail })),
+      ]);
+      await this.app.prisma.incidentNatureOption.createMany({ data: seeds, skipDuplicates: true });
+      return this.SEED_NATURES;
+    }
+
+    // Group into { nature, details[] }
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      if (!row.detail) {
+        if (!map.has(row.nature)) map.set(row.nature, []);
+      } else {
+        if (!map.has(row.nature)) map.set(row.nature, []);
+        map.get(row.nature)!.push(row.detail);
+      }
+    }
+    return Array.from(map.entries()).map(([nature, details]) => ({ nature, details }));
+  }
+
+  async createNatureOption(nature: string, detail?: string): Promise<void> {
+    // Ensure top-level nature exists
+    await this.app.prisma.incidentNatureOption.upsert({
+      where: { nature_detail: { nature, detail: null as any } },
+      create: { nature, detail: null },
+      update: {},
+    });
+    if (detail) {
+      await this.app.prisma.incidentNatureOption.upsert({
+        where: { nature_detail: { nature, detail } },
+        create: { nature, detail },
+        update: {},
+      });
+    }
+  }
 }

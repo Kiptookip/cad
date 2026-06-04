@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident, Vehicle, User, AuditLog } from '../../types/api';
+import EndCaseModal from '../../components/shared/EndCaseModal';
 import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -28,6 +29,7 @@ export default function IncidentDetailPage() {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveReason, setResolveReason] = useState('');
+  const [showEndCaseModal, setShowEndCaseModal] = useState(false);
   const [showAssignPartnerModal, setShowAssignPartnerModal] = useState(false);
   const [selectedPartnerAgencyId, setSelectedPartnerAgencyId] = useState('');
   const [partnerAssignReason, setPartnerAssignReason] = useState('');
@@ -279,6 +281,14 @@ export default function IncidentDetailPage() {
           >
             <CheckCircle size={16} weight="bold" />
             {incident.status === 'RESOLVED' ? 'Resolved' : 'Resolve'}
+          </button>
+          <button
+            onClick={() => setShowEndCaseModal(true)}
+            disabled={incident.status === 'RESOLVED'}
+            className="px-4 py-2 bg-status-danger text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <XCircle size={16} weight="fill" />
+            End Case
           </button>
         </div>
       </div>
@@ -824,6 +834,17 @@ export default function IncidentDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {incident && (
+        <EndCaseModal
+          incidentId={incident.id}
+          caseNumber={incident.caseNumber}
+          isOpen={showEndCaseModal}
+          onClose={() => setShowEndCaseModal(false)}
+          onSuccess={() => navigate('/dashboard')}
+          invalidateKeys={[['incidents']]}
+        />
       )}
     </div>
   );
