@@ -40,7 +40,7 @@ export default function DevRoleSwitcher() {
     }
   }, [pendingNav, navigate]);
 
-  if (!import.meta.env.DEV || !user) return null;
+  if (!user) return null;
 
   const switchTo = (role: Role) => {
     setRole(role);
