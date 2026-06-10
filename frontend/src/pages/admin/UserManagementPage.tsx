@@ -16,7 +16,7 @@ export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
-  const [editRoleTarget, setEditRoleTarget] = useState<{ id: string; name: string; role: Role; agencyId: string } | null>(null);
+  const [editRoleTarget, setEditRoleTarget] = useState<{ id: string; name: string; role: Role; agencyId: string | null } | null>(null);
   const [editRoleValue, setEditRoleValue] = useState<Role>('WATCHER');
   const [editAgencyValue, setEditAgencyValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -318,7 +318,7 @@ export default function UserManagementPage() {
                                 onClick={() => {
                                   setEditRoleTarget({ id: u.id, name: u.name, role: u.role, agencyId: u.agencyId });
                                   setEditRoleValue(u.role);
-                                  setEditAgencyValue(u.agencyId);
+                                  setEditAgencyValue(u.agencyId ?? '');
                                   setActionMenuUserId(null);
                                 }}
                                 className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition-all text-brand-teal"
@@ -509,7 +509,7 @@ export default function UserManagementPage() {
                 onClick={() => editRoleMutation.mutate({
                   userId: editRoleTarget.id,
                   role: editRoleValue,
-                  agencyId: editRoleValue === 'PARTNER' && editAgencyValue !== editRoleTarget.agencyId ? editAgencyValue : undefined,
+                  agencyId: editRoleValue === 'PARTNER' && editAgencyValue && editAgencyValue !== (editRoleTarget.agencyId ?? '') ? editAgencyValue : undefined,
                 })}
                 disabled={editRoleMutation.isPending || editRoleValue === editRoleTarget.role}
                 className="flex items-center gap-2 px-5 py-2 bg-brand-teal text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"

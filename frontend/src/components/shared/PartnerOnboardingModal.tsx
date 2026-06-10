@@ -254,7 +254,7 @@ export default function PartnerOnboardingModal({ isOpen, onClose }: Props) {
                   <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-all">← Back</button>
                   <button
                     type="submit"
-                    disabled={!userForm.name || !userForm.email || !userForm.passwordRaw || createUserMutation.isPending}
+                    disabled={!userForm.name || !userForm.email || !userForm.passwordRaw || !createdAgencyId || createUserMutation.isPending}
                     className="flex items-center gap-2 px-6 py-2.5 bg-brand-green text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-40"
                   >
                     <Handshake size={16} weight="fill" />

@@ -25,7 +25,7 @@ export interface User {
   name: string;
   phone?: string;
   role: Role;
-  agencyId: string;
+  agencyId: string | null;
   agency?: Agency;
   isActive: boolean;
   createdAt: string;
