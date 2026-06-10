@@ -77,12 +77,7 @@ export default function LoginPage() {
                   Authorized personnel only. Accessing this portal grants entry to the EOC Emergency Operations Centre infrastructure and real-time response data.
                 </p>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="h-[1px] flex-1 bg-white/30"></div>
-                <span className="font-sans text-[11px] font-bold tracking-widest text-white/60 uppercase">
-                  System Status: Optimal
-                </span>
-              </div>
+              <div />
             </div>
           </div>
 
