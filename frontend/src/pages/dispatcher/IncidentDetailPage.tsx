@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident, Vehicle, AuditLog } from '../../types/api';
 import EndCaseModal from '../../components/shared/EndCaseModal';
@@ -49,6 +49,19 @@ export default function IncidentDetailPage() {
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: tatData } = useQuery({
+    queryKey: ['incident', id, 'tat'],
+    queryFn: async () => {
+      const res = await api.get(`/incidents/${id}/tat`);
+      return res.data.data as {
+        steps: { key: string; label: string; timestamp: string | null; durationFromPreviousMs: number | null }[];
+        totalMs: number | null;
+      };
+    },
+    enabled: !!id,
+    refetchInterval: 30_000,
   });
 
   const { data: auditLog = [] } = useQuery({
@@ -208,6 +221,16 @@ export default function IncidentDetailPage() {
   };
 
   const step = getStatusStep();
+
+  const fmtDuration = (ms: number): string => {
+    const totalSecs = Math.floor(ms / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+    return `${s}s`;
+  };
 
   return (
     <div className="p-6 flex flex-col gap-6">
@@ -656,6 +679,69 @@ export default function IncidentDetailPage() {
               document.getElementById('dispatch-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
           />
+        </div>
+      </div>
+
+      {/* TAT Timeline */}
+      <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Timer size={16} weight="bold" className="text-brand-teal" />
+            <h3 className="font-semibold text-brand-teal text-sm">Response Timeline (TAT)</h3>
+          </div>
+          {tatData?.totalMs != null && (
+            <span className="text-xs font-semibold bg-brand-teal/10 text-brand-teal px-2.5 py-1 rounded-md">
+              Total: {fmtDuration(tatData.totalMs)}
+            </span>
+          )}
+        </div>
+        <div className="p-6">
+          {!tatData ? (
+            <p className="text-sm text-slate-400 text-center py-4">Loading timeline…</p>
+          ) : (
+            <div className="flex flex-col">
+              {tatData.steps.map((s, i) => {
+                const done = s.timestamp !== null;
+                const isLast = i === tatData.steps.length - 1;
+                return (
+                  <div key={s.key} className="flex gap-4">
+                    {/* Left: dot + connector */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${done ? 'bg-brand-green' : 'border-2 border-slate-200 bg-white'}`} />
+                      {!isLast && <div className={`w-px flex-1 mt-1 mb-1 min-h-[24px] ${done ? 'bg-brand-green/30' : 'bg-slate-100'}`} />}
+                    </div>
+                    {/* Right: step info */}
+                    <div className={`flex-1 pb-4 ${isLast ? '' : ''}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className={`text-sm font-semibold ${done ? 'text-brand-teal' : 'text-slate-300'}`}>{s.label}</p>
+                          {s.timestamp && (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {new Date(s.timestamp).toLocaleString('en-GB', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        {s.durationFromPreviousMs != null && s.durationFromPreviousMs > 0 && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0 ${
+                            s.durationFromPreviousMs > 10 * 60_000
+                              ? 'bg-status-danger/10 text-status-danger'
+                              : s.durationFromPreviousMs > 5 * 60_000
+                              ? 'bg-status-warning/10 text-status-warning'
+                              : 'bg-brand-green/10 text-brand-green'
+                          }`}>
+                            +{fmtDuration(s.durationFromPreviousMs)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

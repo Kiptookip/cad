@@ -247,6 +247,81 @@ export class IncidentService {
     return updated;
   }
 
+  async getIncidentTat(id: string) {
+    const incident = await this.app.prisma.incident.findUnique({
+      where: { id },
+      include: {
+        tasks: {
+          orderBy: { receivedAt: 'asc' },
+          select: {
+            receivedAt: true,
+            acceptedAt: true,
+            sceneArrivalAt: true,
+            patientPickAt: true,
+            facilityArrivalAt: true,
+            completedAt: true,
+            cancelledAt: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!incident) throw new NotFoundError('Incident not found');
+
+    const auditLog = await this.app.prisma.auditLog.findMany({
+      where: { subjectType: 'INCIDENT', subjectId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const getStatusTs = (status: string): Date | null => {
+      const entry = auditLog.find(
+        a => a.action === 'STATUS_CHANGE' && (a.newValues as Record<string, unknown>)?.status === status
+      );
+      return entry ? entry.createdAt : null;
+    };
+
+    const task = incident.tasks[0] ?? null;
+
+    type TatStep = {
+      key: string;
+      label: string;
+      timestamp: Date | null;
+      durationFromPreviousMs: number | null;
+    };
+
+    const rawSteps: { key: string; label: string; timestamp: Date | null }[] = [
+      { key: 'alert_received',      label: 'Alert Received',        timestamp: incident.alertAt ?? null },
+      { key: 'submitted',           label: 'Incident Submitted',     timestamp: incident.createdAt },
+      { key: 'dispatch_handling',   label: 'Dispatcher Picked Up',   timestamp: getStatusTs('DISPATCH_HANDLING') },
+      { key: 'dispatched',          label: 'Vehicle Dispatched',     timestamp: task?.receivedAt ?? null },
+      { key: 'crew_accepted',       label: 'Crew Accepted',         timestamp: task?.acceptedAt ?? null },
+      { key: 'at_scene',            label: 'Arrived at Scene',      timestamp: task?.sceneArrivalAt ?? null },
+      { key: 'patient_picked',      label: 'Patient On Board',      timestamp: task?.patientPickAt ?? null },
+      { key: 'at_hospital',         label: 'Arrived at Facility',   timestamp: task?.facilityArrivalAt ?? null },
+      { key: 'task_completed',      label: 'Task Completed',        timestamp: task?.completedAt ?? task?.cancelledAt ?? null },
+      { key: 'case_closed',         label: 'Case Closed',           timestamp: getStatusTs('RESOLVED') ?? (auditLog.find(a => a.action === 'CLOSE')?.createdAt ?? null) },
+    ];
+
+    // Drop the alert_received step if it's the same as submitted (no separate alertAt)
+    const steps: TatStep[] = [];
+    let prevTs: Date | null = null;
+    for (const s of rawSteps) {
+      if (s.key === 'alert_received' && !incident.alertAt) continue;
+      const durationFromPreviousMs =
+        s.timestamp && prevTs ? s.timestamp.getTime() - prevTs.getTime() : null;
+      steps.push({ ...s, durationFromPreviousMs });
+      if (s.timestamp) prevTs = s.timestamp;
+    }
+
+    const completed = steps.filter(s => s.timestamp !== null);
+    const first = completed[0]?.timestamp ?? null;
+    const last = completed[completed.length - 1]?.timestamp ?? null;
+    const totalMs = first && last ? last.getTime() - first.getTime() : null;
+
+    return { steps, totalMs };
+  }
+
   async getPartnerAgencies() {
     return this.app.prisma.agency.findMany({
       where: { type: 'PARTNER', isActive: true },

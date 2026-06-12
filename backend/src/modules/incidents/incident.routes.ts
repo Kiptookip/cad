@@ -158,6 +158,18 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
   );
 
   /**
+   * GET /incidents/:id/tat
+   * Returns a step-by-step TAT breakdown for a single incident.
+   */
+  app.get<{ Params: { id: string } }>(
+    '/:id/tat',
+    async (request, reply) => {
+      const tat = await incidentService.getIncidentTat(request.params.id);
+      return reply.send({ ok: true, data: tat });
+    }
+  );
+
+  /**
    * GET /incidents/:id/audit-log
    */
   app.get<{ Params: { id: string } }>(
