@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactElement } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Phone,
@@ -17,7 +17,7 @@ import { useActiveCalls } from '../../hooks/useActiveCalls';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { socket } from '../../lib/socket';
 
-const DIRECTION_ICONS: Record<CallDirection, JSX.Element> = {
+const DIRECTION_ICONS: Record<CallDirection, ReactElement> = {
   INBOUND:  <PhoneIncoming  size={16} weight="bold" className="text-brand-green" />,
   OUTBOUND: <PhoneOutgoing  size={16} weight="bold" className="text-brand-teal" />,
   INTERNAL: <Phone          size={16} weight="bold" className="text-slate-400" />,

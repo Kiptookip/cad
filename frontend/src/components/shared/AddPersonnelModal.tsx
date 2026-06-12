@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { 
   X, UserPlus, Envelope, Lock, Phone, 
   ShieldCheck, Globe, Info, IdentificationCard,
-  Briefcase, WarningCircle
+  Briefcase
 } from '@phosphor-icons/react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import api from '../../api/client';
@@ -43,7 +43,7 @@ export default function AddPersonnelModal({ isOpen, onClose }: AddPersonnelModal
     mutationFn: async (data: typeof formData) => {
       return api.post('/admin/users', data);
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       addNotification({ 
         type: 'success', 

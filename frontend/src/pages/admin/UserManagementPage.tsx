@@ -497,7 +497,7 @@ export default function UserManagementPage() {
                     value={editAgencyValue}
                     onChange={e => setEditAgencyValue(e.target.value)}
                   >
-                    <option value={editRoleTarget.agencyId}>Keep current agency</option>
+                    <option value={editRoleTarget.agencyId ?? ''}>Keep current agency</option>
                     {agencies.filter(a => a.type === 'PARTNER').map(a => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}

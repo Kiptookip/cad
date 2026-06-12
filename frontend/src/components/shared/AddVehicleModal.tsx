@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   X, Truck, IdentificationCard, Broadcast, Globe,
-  Radio, Toolbox, UsersThree, GasPump,
+  Toolbox, UsersThree, GasPump,
   Lightning, Info, WarningCircle
 } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle } from '@phosphor-icons/react';
 import api from '../../api/client';
-import { Incident, Vehicle, User, AuditLog } from '../../types/api';
+import { Incident, Vehicle, AuditLog } from '../../types/api';
 import EndCaseModal from '../../components/shared/EndCaseModal';
 import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';

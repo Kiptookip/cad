@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   PlusCircle, MagnifyingGlass, Download, ArrowUpRight,
   MapTrifold, Crosshair, X, Gauge, Hash, NavigationArrow,
@@ -9,7 +9,7 @@ import api from '../../api/client';
 import { Vehicle } from '../../types/api';
 import Map from '../../components/shared/Map';
 import AddVehicleModal from '../../components/shared/AddVehicleModal';
-import { useVehicleTracking, getVehicleTrackingStatus, LiveVehicle } from '../../hooks/useVehicleTracking';
+import { useVehicleTracking, getVehicleTrackingStatus } from '../../hooks/useVehicleTracking';
 import { useNotificationStore } from '../../stores/notificationStore';
 
 type StatusFilter = 'ALL' | 'moving' | 'stopped' | 'busy' | 'maintenance' | 'offline';
@@ -30,7 +30,6 @@ export default function FleetPage() {
   const [selected, setSelected]           = useState<Vehicle | null>(null);
   const [isFullscreen, setIsFullscreen]   = useState(false);
 
-  const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
   const { vehicles: liveVehicles, lastUpdatedAt } = useVehicleTracking();
 

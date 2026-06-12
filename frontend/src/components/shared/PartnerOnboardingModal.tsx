@@ -175,7 +175,7 @@ export default function PartnerOnboardingModal({ isOpen, onClose }: Props) {
 
             {/* Step indicator */}
             <div className="flex items-center gap-3 mb-6">
-              {[['1', 'Partner Agency', Buildings], ['2', 'User Account', UserPlus]].map(([num, label, Icon], i) => {
+              {[['1', 'Partner Agency', Buildings], ['2', 'User Account', UserPlus]].map(([num, label, _Icon], i) => {
                 const done = step > i + 1;
                 const active = step === i + 1;
                 return (
