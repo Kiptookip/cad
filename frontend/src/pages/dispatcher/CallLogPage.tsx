@@ -9,7 +9,7 @@ import {
   Funnel,
   LinkSimple,
   ArrowClockwise,
-  RecordFill,
+  Circle,
 } from '@phosphor-icons/react';
 import { formatDistanceToNow, format } from 'date-fns';
 import api from '../../api/client';
@@ -115,7 +115,7 @@ export default function CallLogPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-green/10 border border-brand-green/20 rounded-lg">
-            <RecordFill size={10} className="text-brand-green animate-pulse" />
+            <Circle size={10} weight="fill" className="text-brand-green animate-pulse" />
             <span className="text-xs font-semibold text-brand-green">Incoming calls logging</span>
           </div>
           <button
