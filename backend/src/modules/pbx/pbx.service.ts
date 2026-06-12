@@ -16,7 +16,7 @@ import { Role } from '../../shared/types/index.js';
  *   Set URL to: http://<your-server>/pbx/webhook
  *
  * Credentials in .env:
- *   YEASTAR_BASE_URL         = https://eoc.cras.yeastar.com
+ *   YEASTAR_BASE_URL         = https://eoc.ras.yeastar.com  (check your browser URL — no "c" in "ras")
  *   YEASTAR_CLIENT_ID        = <Client ID from PBX API page>
  *   YEASTAR_CLIENT_SECRET    = <Client Secret from PBX API page>
  *   YEASTAR_WEBHOOK_SECRET   = <any shared secret you set>
