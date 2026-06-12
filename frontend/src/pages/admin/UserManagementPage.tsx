@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  UserPlus, MagnifyingGlass, Faders, DotsThreeVertical,
+  UserPlus, MagnifyingGlass, DotsThreeVertical,
   Download, ClockCounterClockwise, MagicWand, CaretLeft,
   CaretRight, TrendUp, ShieldCheck, Check, X as XIcon,
   PencilSimple, Buildings,
@@ -23,6 +23,7 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
   const [agencyFilter, setAgencyFilter] = useState('ALL');
   const [actionMenuUserId, setActionMenuUserId] = useState<string | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const { addNotification } = useNotificationStore();
   const queryClient = useQueryClient();
 
@@ -75,6 +76,34 @@ export default function UserManagementPage() {
       return res.data.data as Agency[];
     },
   });
+
+  const { data: auditLogsResponse, isLoading: auditLoading } = useQuery({
+    queryKey: ['admin', 'audit-logs'],
+    queryFn: async () => {
+      const res = await api.get('/admin/audit-logs?limit=50');
+      return res.data.data as { id: string; createdAt: string; action: string; subjectId?: string; user?: { name: string; email: string } }[];
+    },
+    enabled: showAuditModal,
+  });
+
+  const auditLogs = auditLogsResponse ?? [];
+
+  function downloadAuditCSV() {
+    const headers = ['Time', 'User', 'Email', 'Action', 'Subject'];
+    const rows = auditLogs.map(l => [
+      new Date(l.createdAt).toISOString(),
+      l.user?.name ?? '',
+      l.user?.email ?? '',
+      l.action,
+      l.subjectId ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Audit_Log_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  }
 
   const users = usersResponse?.data || [];
   const meta = usersResponse?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 };
@@ -237,12 +266,6 @@ export default function UserManagementPage() {
               {agencies?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
-          <button 
-            onClick={() => addNotification({ type: 'info', title: 'Filters', message: 'Advanced filter menu opened.' })}
-            className="p-3 bg-white border border-surface-border rounded-xl hover:bg-brand-teal hover:text-white text-slate-400 transition-all shadow-sm flex items-center justify-center"
-          >
-            <Faders size={22} weight="bold" />
-          </button>
         </div>
       </div>
 
@@ -398,19 +421,12 @@ export default function UserManagementPage() {
                 <span className="font-black text-[11px] uppercase tracking-widest group-hover:text-brand-green transition-colors">Export Tactical Roster</span>
                 <Download size={22} weight="bold" className="text-slate-300 group-hover:text-brand-green transition-colors" />
               </button>
-              <button 
-                onClick={() => addNotification({ type: 'info', title: 'Audit Log', message: 'Opening system audit trail.' })}
+              <button
+                onClick={() => setShowAuditModal(true)}
                 className="flex items-center justify-between p-5 bg-white rounded-xl hover:shadow-lg transition-all text-brand-teal border border-surface-border group"
               >
                 <span className="font-black text-[11px] uppercase tracking-widest group-hover:text-brand-green transition-colors">Audit Integrity Log</span>
                 <ClockCounterClockwise size={22} weight="bold" className="text-slate-300 group-hover:text-brand-green transition-colors" />
-              </button>
-              <button 
-                onClick={() => addNotification({ type: 'info', title: 'Bulk Update', message: 'Bulk role modification wizard started.' })}
-                className="flex items-center justify-between p-5 bg-white rounded-xl hover:shadow-lg transition-all text-brand-teal border border-surface-border group"
-              >
-                <span className="font-black text-[11px] uppercase tracking-widest group-hover:text-brand-green transition-colors">Bulk Credentialing</span>
-                <MagicWand size={22} weight="bold" className="text-slate-300 group-hover:text-brand-green transition-colors" />
               </button>
             </div>
           </div>
@@ -517,6 +533,69 @@ export default function UserManagementPage() {
                 <Check size={14} weight="bold" />
                 {editRoleMutation.isPending ? 'Saving…' : 'Save Role'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Integrity Log Modal */}
+      {showAuditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuditModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="bg-brand-sidebar px-5 py-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <ClockCounterClockwise size={18} weight="fill" className="text-brand-green" />
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">System Records</p>
+                  <p className="text-sm font-bold text-white">Audit Integrity Log</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadAuditCSV}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-green/20 hover:bg-brand-green text-brand-green hover:text-white text-xs font-bold rounded-lg transition-all"
+                >
+                  <Download size={13} weight="bold" /> Export CSV
+                </button>
+                <button onClick={() => setShowAuditModal(false)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all">
+                  <XIcon size={16} weight="bold" />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {auditLoading ? (
+                <div className="flex items-center justify-center py-16 gap-3">
+                  <div className="w-8 h-8 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin" />
+                  <p className="text-xs font-black text-brand-teal uppercase tracking-widest">Loading audit records…</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-16">No audit records found.</p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-surface-border sticky top-0">
+                      <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
+                      <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">User</th>
+                      <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                      <th className="px-5 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Subject</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-border/50">
+                    {auditLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
+                        <td className="px-5 py-3">
+                          <div className="text-xs font-bold text-brand-teal">{log.user?.name ?? '—'}</div>
+                          <div className="text-[11px] text-slate-400">{log.user?.email ?? ''}</div>
+                        </td>
+                        <td className="px-5 py-3 text-xs font-semibold text-brand-teal">{log.action}</td>
+                        <td className="px-5 py-3 text-xs text-slate-400 font-mono">{log.subjectId ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

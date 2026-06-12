@@ -1,15 +1,24 @@
-import { ShareNetwork, Handshake, CheckCircle, Warning, MagnifyingGlass, Funnel, ArrowSquareOut, MapPin, Users } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { ShareNetwork, Handshake, CheckCircle, Warning, MagnifyingGlass, ArrowSquareOut, MapPin, Users, X } from '@phosphor-icons/react';
 import { formatDistanceToNow } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { Incident } from '../../types/api';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
 
+type Urgency = 'LOW' | 'MEDIUM' | 'HIGH';
+
 export default function PartnerDashboardPage() {
   const navigate = useNavigate();
   const { addNotification } = useNotificationStore();
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestMessage, setRequestMessage] = useState('');
+  const [requestUrgency, setRequestUrgency] = useState<Urgency>('MEDIUM');
 
   const { data: incidentsData, isLoading } = useQuery({
     queryKey: ['partner', 'incidents'],
@@ -20,6 +29,15 @@ export default function PartnerDashboardPage() {
   });
 
   const incidents = incidentsData ?? [];
+
+  const filtered = incidents.filter(i => {
+    const matchesSearch = !search ||
+      i.caseNumber.toLowerCase().includes(search.toLowerCase()) ||
+      i.chiefComplaint.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || i.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   const urgentCount = incidents.filter(i => i.status === 'SUBMITTED').length;
   const activeCount = incidents.filter(i => i.status === 'DISPATCHED' || i.status === 'DISPATCH_HANDLING').length;
   const resolvedCount = incidents.filter(i => i.status === 'RESOLVED').length;
@@ -27,9 +45,23 @@ export default function PartnerDashboardPage() {
   const mapMarkers = incidents
     .filter(i => i.lat && i.lng)
     .map(i => ({ id: i.id, lat: i.lat!, lng: i.lng!, title: i.chiefComplaint, type: 'incident' as const }));
+
+  const resourceRequestMutation = useMutation({
+    mutationFn: () => api.post('/partner/resource-request', { message: requestMessage, urgency: requestUrgency }),
+    onSuccess: () => {
+      addNotification({ type: 'success', title: 'Request Sent', message: 'Resource request forwarded to central dispatch.' });
+      setShowRequestModal(false);
+      setRequestMessage('');
+      setRequestUrgency('MEDIUM');
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Request Failed', message: err?.response?.data?.message || 'Could not send resource request.' });
+    },
+  });
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-5 rounded-xl border border-surface-border shadow-sm">
         <div>
@@ -37,7 +69,7 @@ export default function PartnerDashboardPage() {
           <p className="text-xs text-slate-text mt-0.5">Forwarded cases and agency coordination</p>
         </div>
         <button
-          onClick={() => addNotification({ type: 'success', title: 'Request Sent', message: 'Resource request has been forwarded to central dispatch.' })}
+          onClick={() => setShowRequestModal(true)}
           className="w-full sm:w-auto bg-brand-teal text-white font-medium text-sm px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
         >
           <Handshake size={18} weight="fill" />
@@ -81,18 +113,27 @@ export default function PartnerDashboardPage() {
           <div className="px-5 py-4 border-b border-surface-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
             <h3 className="font-semibold text-brand-teal">Case Feed</h3>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => addNotification({ type: 'info', title: 'Search', message: 'Search functionality triggered.' })}
-                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-teal rounded-lg transition-all border border-surface-border"
+              <div className="relative">
+                <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" weight="bold" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search cases…"
+                  className="pl-8 pr-3 py-1.5 text-xs border border-surface-border rounded-lg bg-slate-50 text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal/30 w-36 sm:w-44"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="text-xs border border-surface-border rounded-lg px-2 py-1.5 bg-slate-50 text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal/30 cursor-pointer"
               >
-                <MagnifyingGlass size={18} weight="bold" />
-              </button>
-              <button
-                onClick={() => addNotification({ type: 'info', title: 'Filters', message: 'Filter menu opened.' })}
-                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-teal rounded-lg transition-all border border-surface-border"
-              >
-                <Funnel size={18} weight="bold" />
-              </button>
+                <option value="ALL">All Status</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="DISPATCH_HANDLING">Handling</option>
+                <option value="DISPATCHED">Dispatched</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
             </div>
           </div>
 
@@ -110,9 +151,9 @@ export default function PartnerDashboardPage() {
               <tbody className="divide-y divide-surface-border/50">
                 {isLoading ? (
                   <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">Loading cases...</td></tr>
-                ) : incidents.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">No forwarded cases</td></tr>
-                ) : incidents.map(c => (
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">No cases match filters</td></tr>
+                ) : filtered.map(c => (
                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold text-brand-teal text-sm">{c.caseNumber}</div>
@@ -199,6 +240,77 @@ export default function PartnerDashboardPage() {
         </div>
       </div>
 
+      {/* Resource Request Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRequestModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-brand-sidebar px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Handshake size={18} weight="fill" className="text-brand-green" />
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Resource Request</p>
+                  <p className="text-sm font-bold text-white">Send to Central Dispatch</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              >
+                <X size={16} weight="bold" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Urgency</label>
+                <div className="flex gap-2">
+                  {(['LOW', 'MEDIUM', 'HIGH'] as Urgency[]).map(u => (
+                    <button
+                      key={u}
+                      onClick={() => setRequestUrgency(u)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${
+                        requestUrgency === u
+                          ? u === 'HIGH' ? 'bg-status-danger text-white border-status-danger'
+                            : u === 'MEDIUM' ? 'bg-status-warning text-white border-status-warning'
+                            : 'bg-brand-green text-white border-brand-green'
+                          : 'border-surface-border text-slate-400 hover:border-brand-teal/30'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Message</label>
+                <textarea
+                  value={requestMessage}
+                  onChange={e => setRequestMessage(e.target.value)}
+                  rows={4}
+                  placeholder="Describe the resource needed and situation…"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-brand-teal outline-none focus:ring-2 focus:ring-brand-teal resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-500 text-sm font-bold rounded-xl hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => resourceRequestMutation.mutate()}
+                disabled={requestMessage.trim().length < 5 || resourceRequestMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2 bg-brand-teal text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Handshake size={14} weight="fill" />
+                {resourceRequestMutation.isPending ? 'Sending…' : 'Send Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

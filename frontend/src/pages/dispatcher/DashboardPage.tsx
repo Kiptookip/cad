@@ -6,13 +6,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { socket } from '../../lib/socket';
-import { useNotificationStore } from '../../stores/notificationStore';
 import Map from '../../components/shared/Map';
 import { useVehicleTracking } from '../../hooks/useVehicleTracking';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { addNotification } = useNotificationStore();
   const [mapLayer, setMapLayer] = useState<'light' | 'dark' | 'street'>('light');
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
@@ -126,19 +124,13 @@ export default function DashboardPage() {
                   const layers: ('light' | 'dark' | 'street')[] = ['light', 'dark', 'street'];
                   const nextLayer = layers[(layers.indexOf(mapLayer) + 1) % layers.length];
                   setMapLayer(nextLayer);
-                  addNotification({ type: 'info', title: 'Layer Changed', message: `Map layer set to ${nextLayer}.` });
                 }}
                 className="border border-surface-border px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 rounded-lg hover:bg-slate-50 transition-all text-slate-text"
               >
                 <Stack size={14} weight="bold" /> Layers
               </button>
               <button
-                onClick={() => {
-                  setIsMapExpanded(!isMapExpanded);
-                  if (!isMapExpanded) {
-                    addNotification({ type: 'info', title: 'Tactical View', message: 'Map expanded to full scale.' });
-                  }
-                }}
+                onClick={() => setIsMapExpanded(!isMapExpanded)}
                 className="border border-surface-border px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 rounded-lg hover:bg-slate-50 transition-all text-slate-text"
               >
                 {isMapExpanded ? (

@@ -111,4 +111,40 @@ export const partnerRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
       return reply.send({ ok: true, data: incident });
     }
   );
+
+  /**
+   * POST /partner/resource-request
+   * Partner sends a resource request to all dispatchers/admins via socket.
+   * No DB model — socket-only.
+   */
+  app.post(
+    '/resource-request',
+    async (request, reply) => {
+      const parsed = z.object({
+        message: z.string().min(5, 'Message must be at least 5 characters'),
+        urgency: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+      }).safeParse(request.body);
+      if (!parsed.success) throw new BadRequestError(parsed.error.issues[0].message);
+
+      const agency = await app.prisma.agency.findUnique({
+        where: { id: request.user.agencyId },
+        select: { id: true, name: true },
+      });
+
+      app.io
+        .to(`role:${Role.DISPATCHER}`)
+        .to(`role:${Role.ADMIN}`)
+        .to(`role:${Role.SUPER_ADMIN}`)
+        .emit('partner:resource-request', {
+          agencyId: request.user.agencyId,
+          agencyName: agency?.name,
+          requestedById: request.user.userId,
+          message: parsed.data.message,
+          urgency: parsed.data.urgency,
+          requestedAt: new Date().toISOString(),
+        });
+
+      return reply.send({ ok: true, message: 'Resource request sent to dispatch' });
+    }
+  );
 };
