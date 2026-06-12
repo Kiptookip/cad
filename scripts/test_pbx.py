@@ -15,8 +15,8 @@ from datetime import datetime
 URL = "http://localhost:3000/pbx/webhook"
 SECRET = os.environ.get("YEASTAR_WEBHOOK_SECRET", "V0R5joSuCAF1uMWcvQqHK1CXcTbLeBfg")
 
-CALLER = sys.argv[1] if len(sys.argv) > 1 else "0722111222"
-CALLEE = sys.argv[2] if len(sys.argv) > 2 else "0800720999"
+CALLER = input("Caller number (press Enter for 0722111222): ").strip() or "0722111222"
+CALLEE = input("Callee number (press Enter for 0800720999): ").strip() or "0800720999"
 CALL_ID = f"sim-{int(time.time())}"
 NOW = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
