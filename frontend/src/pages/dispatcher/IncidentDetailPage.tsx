@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer, Warning, ArrowCircleDown, Link } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer, Warning, ArrowCircleDown, Link as LinkIcon } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident, Vehicle, AuditLog, CallLog } from '../../types/api';
 import EndCaseModal from '../../components/shared/EndCaseModal';
@@ -32,8 +32,6 @@ export default function IncidentDetailPage() {
   const [showAssignPartnerModal, setShowAssignPartnerModal] = useState(false);
   const [selectedPartnerAgencyId, setSelectedPartnerAgencyId] = useState('');
   const [partnerAssignReason, setPartnerAssignReason] = useState('');
-  const [dialModal, setDialModal] = useState<{ number: string } | null>(null);
-  const [dialExt, setDialExt] = useState('');
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [showDeescalateConfirm, setShowDeescalateConfirm] = useState(false);
   const [escalateCasualtyCount, setEscalateCasualtyCount] = useState('');
@@ -197,19 +195,6 @@ export default function IncidentDetailPage() {
     },
     onError: (err: any) => {
       addNotification({ type: 'error', title: 'Failed', message: err?.response?.data?.message || 'Could not assign to partner.' });
-    },
-  });
-
-  const dialMutation = useMutation({
-    mutationFn: ({ extId, outNumber }: { extId: string; outNumber: string }) =>
-      api.post('/pbx/dial', { extId, outNumber, incidentId: id }),
-    onSuccess: () => {
-      setDialModal(null);
-      setDialExt('');
-      addNotification({ type: 'success', title: 'Call Initiated', message: 'Your phone will ring first, then connect to the number.' });
-    },
-    onError: (err: any) => {
-      addNotification({ type: 'error', title: 'Call Failed', message: err?.response?.data?.message || 'Could not initiate call.' });
     },
   });
 
@@ -544,16 +529,7 @@ export default function IncidentDetailPage() {
               {incident.patientContact && (
                 <div>
                   <label className="text-xs font-medium text-slate-text block mb-1">Patient Contact</label>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-brand-teal">{incident.patientContact}</p>
-                    <button
-                      onClick={() => setDialModal({ number: incident.patientContact! })}
-                      className="p-1.5 rounded-lg bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white transition-all"
-                      title={`Call ${incident.patientContact}`}
-                    >
-                      <Phone size={13} weight="fill" />
-                    </button>
-                  </div>
+                  <p className="text-sm font-semibold text-brand-teal">{incident.patientContact}</p>
                 </div>
               )}
               {incident.nextOfKin && (
@@ -658,7 +634,7 @@ export default function IncidentDetailPage() {
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0 ${
                         call.status === 'ANSWERED' ? 'bg-brand-green/10 text-brand-green' : 'bg-slate-100 text-slate-400'
                       }`}>{call.status}</span>
-                      <Link size={14} className="text-slate-200 group-hover:text-brand-teal flex-shrink-0 transition-colors" />
+                      <LinkIcon size={14} className="text-slate-200 group-hover:text-brand-teal flex-shrink-0 transition-colors" />
                     </button>
                   ))}
                 </div>
@@ -1061,56 +1037,6 @@ export default function IncidentDetailPage() {
               >
                 <ShareNetwork size={16} weight="fill" />
                 {assignPartnerMutation.isPending ? 'Assigning...' : 'Forward to Partner'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Click-to-Call modal */}
-      {dialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-surface-border">
-            <h3 className="text-base font-bold text-brand-teal mb-1 flex items-center gap-2">
-              <Phone size={18} weight="fill" className="text-brand-green" />
-              Initiate Call
-            </h3>
-            <p className="text-xs text-slate-text mb-4">
-              Your extension will ring first. Once you answer, it connects to the number below.
-            </p>
-            <div className="flex flex-col gap-3 mb-5">
-              <div>
-                <label className="text-xs font-medium text-slate-text block mb-1">Your Extension</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 101"
-                  autoFocus
-                  value={dialExt}
-                  onChange={e => setDialExt(e.target.value)}
-                  className="w-full border border-surface-border rounded-lg px-4 py-2.5 text-sm font-semibold text-brand-teal focus:ring-2 focus:ring-brand-green outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-text block mb-1">Calling</label>
-                <p className="px-4 py-2.5 bg-slate-50 rounded-lg text-sm font-bold text-brand-teal border border-surface-border">
-                  {dialModal.number}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setDialModal(null); setDialExt(''); }}
-                className="flex-1 px-4 py-2.5 border border-surface-border rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => dialMutation.mutate({ extId: dialExt, outNumber: dialModal.number })}
-                disabled={!dialExt.trim() || dialMutation.isPending}
-                className="flex-1 px-4 py-2.5 bg-brand-green text-white rounded-lg text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Phone size={16} weight="fill" />
-                {dialMutation.isPending ? 'Calling...' : 'Call Now'}
               </button>
             </div>
           </div>
