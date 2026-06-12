@@ -9,8 +9,9 @@ import api from '../../api/client';
 import { Vehicle } from '../../types/api';
 import Map from '../../components/shared/Map';
 import AddVehicleModal from '../../components/shared/AddVehicleModal';
-import { useVehicleTracking, getVehicleTrackingStatus } from '../../hooks/useVehicleTracking';
+import { useVehicleTracking, getVehicleTrackingStatus, LiveVehicle } from '../../hooks/useVehicleTracking';
 import { useNotificationStore } from '../../stores/notificationStore';
+import VehicleDispatchPanel from '../../components/shared/VehicleDispatchPanel';
 
 type StatusFilter = 'ALL' | 'moving' | 'stopped' | 'busy' | 'maintenance' | 'offline';
 
@@ -29,6 +30,7 @@ export default function FleetPage() {
   const [focusPos, setFocusPos]           = useState<[number, number] | undefined>();
   const [selected, setSelected]           = useState<Vehicle | null>(null);
   const [isFullscreen, setIsFullscreen]   = useState(false);
+  const [clickedVehicle, setClickedVehicle] = useState<LiveVehicle | null>(null);
 
   const { addNotification } = useNotificationStore();
   const { vehicles: liveVehicles, lastUpdatedAt } = useVehicleTracking();
@@ -385,6 +387,7 @@ export default function FleetPage() {
                   showLegend
                   focusPosition={focusPos}
                   lastUpdatedAt={lastUpdatedAt}
+                  onVehicleClick={v => setClickedVehicle(v)}
                 />
               </div>
               <p className="text-xs text-slate-400 mb-4">
@@ -543,9 +546,18 @@ export default function FleetPage() {
               showLegend
               focusPosition={focusPos}
               lastUpdatedAt={lastUpdatedAt}
+              onVehicleClick={v => setClickedVehicle(v)}
             />
           </div>
         </div>
+      )}
+
+      {/* Vehicle dispatch panel — fires when clicking a vehicle on any map */}
+      {clickedVehicle && (
+        <VehicleDispatchPanel
+          clickedVehicle={clickedVehicle}
+          onClose={() => setClickedVehicle(null)}
+        />
       )}
     </div>
   );

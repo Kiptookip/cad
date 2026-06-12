@@ -182,9 +182,11 @@ function MapLegend({ hasIncidents }: { hasIncidents: boolean }) {
 function VehicleStrip({
   vehicles,
   onFlyTo,
+  onVehicleClick,
 }: {
   vehicles: LiveVehicle[];
   onFlyTo: (v: LiveVehicle) => void;
+  onVehicleClick?: (v: LiveVehicle) => void;
 }) {
   const [visible, setVisible] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -192,6 +194,7 @@ function VehicleStrip({
   function handleSelect(v: LiveVehicle) {
     setSelectedId(v.vehicleId === selectedId ? null : v.vehicleId);
     onFlyTo(v);
+    onVehicleClick?.(v);
   }
 
   if (!visible) {
@@ -268,6 +271,8 @@ interface MapProps {
   className?: string;
   layerType?: 'light' | 'dark' | 'street';
   onLocationSelect?: (lat: number, lng: number) => void;
+  /** When set, clicking a vehicle marker fires this callback instead of showing the default popup */
+  onVehicleClick?: (vehicle: LiveVehicle) => void;
   showLegend?: boolean;
   showLiveBadge?: boolean;
   showVehicleList?: boolean;
@@ -291,6 +296,7 @@ export default function Map({
   className = 'h-full w-full',
   layerType = 'light',
   onLocationSelect,
+  onVehicleClick,
   showLegend = false,
   showLiveBadge = false,
   showVehicleList = false,
@@ -341,11 +347,19 @@ export default function Map({
               key={v.vehicleId}
               position={[v.lat, v.lng]}
               icon={createVehicleIcon(v.heading, status, v.speed)}
-              eventHandlers={{ click: () => setFlyTarget([v.lat, v.lng, Date.now()]) }}
+              eventHandlers={{
+                click: () => {
+                  setFlyTarget([v.lat, v.lng, Date.now()]);
+                  onVehicleClick?.(v);
+                },
+              }}
             >
-              <Popup maxWidth={220}>
-                <div dangerouslySetInnerHTML={{ __html: vehiclePopupHtml(v, status) }} />
-              </Popup>
+              {/* Suppress default popup when a click handler is wired — parent shows dispatch panel */}
+              {!onVehicleClick && (
+                <Popup maxWidth={220}>
+                  <div dangerouslySetInnerHTML={{ __html: vehiclePopupHtml(v, status) }} />
+                </Popup>
+              )}
             </Marker>
           );
         })}
@@ -360,7 +374,7 @@ export default function Map({
         />
       )}
       {showVehicleList && vehicleMarkers.length > 0 && (
-        <VehicleStrip vehicles={vehicleMarkers} onFlyTo={flyToVehicle} />
+        <VehicleStrip vehicles={vehicleMarkers} onFlyTo={flyToVehicle} onVehicleClick={onVehicleClick} />
       )}
       {showLegend && <MapLegend hasIncidents={markers.length > 0} />}
       {children}

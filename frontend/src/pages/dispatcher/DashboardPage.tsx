@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { socket } from '../../lib/socket';
 import Map from '../../components/shared/Map';
-import { useVehicleTracking } from '../../hooks/useVehicleTracking';
+import { useVehicleTracking, LiveVehicle } from '../../hooks/useVehicleTracking';
+import VehicleDispatchPanel from '../../components/shared/VehicleDispatchPanel';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [mapLayer, setMapLayer] = useState<'light' | 'dark' | 'street'>('light');
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [clickedVehicle, setClickedVehicle] = useState<LiveVehicle | null>(null);
 
   // Query to get recent incidents
   const { data: incidentsData } = useQuery({
@@ -153,6 +155,7 @@ export default function DashboardPage() {
               showLegend
               showVehicleList
               lastUpdatedAt={lastUpdatedAt}
+              onVehicleClick={v => setClickedVehicle(v)}
             />
           </div>
         </div>
@@ -259,5 +262,13 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+
+    {/* Vehicle dispatch panel — opens when dispatcher clicks a vehicle on the map */}
+    {clickedVehicle && (
+      <VehicleDispatchPanel
+        clickedVehicle={clickedVehicle}
+        onClose={() => setClickedVehicle(null)}
+      />
+    )}
   );
 }
