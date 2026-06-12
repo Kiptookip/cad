@@ -84,6 +84,7 @@ export const pbxRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         { callTo: { contains: q.search } },
       ];
     }
+    if (q.unlinked === 'true') where.incidentId = null;
 
     const [total, records] = await Promise.all([
       app.prisma.callLog.count({ where }),

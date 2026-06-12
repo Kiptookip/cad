@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer, Warning, ArrowCircleDown } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer, Warning, ArrowCircleDown, Link } from '@phosphor-icons/react';
 import api from '../../api/client';
-import { Incident, Vehicle, AuditLog } from '../../types/api';
+import { Incident, Vehicle, AuditLog, CallLog } from '../../types/api';
 import EndCaseModal from '../../components/shared/EndCaseModal';
 import { formatDistanceToNow } from 'date-fns';
 import Map from '../../components/shared/Map';
@@ -240,6 +240,35 @@ export default function IncidentDetailPage() {
     },
     onError: (err: any) => {
       addNotification({ type: 'error', title: 'Failed', message: err?.response?.data?.message || 'Could not de-escalate.' });
+    },
+  });
+
+  const { data: linkedCalls = [] } = useQuery({
+    queryKey: ['pbx', 'cdr', 'linked', id],
+    queryFn: async () => {
+      const res = await api.get(`/pbx/cdr?incidentId=${id}&limit=20`);
+      return res.data.data as CallLog[];
+    },
+    enabled: !!id,
+  });
+
+  const { data: unlinkedCalls = [], refetch: refetchUnlinked } = useQuery({
+    queryKey: ['pbx', 'cdr', 'unlinked'],
+    queryFn: async () => {
+      const res = await api.get('/pbx/cdr?unlinked=true&limit=10&direction=INBOUND');
+      return res.data.data as CallLog[];
+    },
+  });
+
+  const linkCallMutation = useMutation({
+    mutationFn: (callLogId: string) => api.patch(`/pbx/cdr/${callLogId}/link`, { incidentId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pbx', 'cdr', 'linked', id] });
+      refetchUnlinked();
+      addNotification({ type: 'success', title: 'Call Linked', message: 'Call log linked to this incident.' });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Failed', message: err?.response?.data?.message || 'Could not link call.' });
     },
   });
 
@@ -568,6 +597,74 @@ export default function IncidentDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Call Records */}
+          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex items-center gap-2">
+              <Phone size={16} weight="bold" className="text-brand-teal" />
+              <h3 className="font-semibold text-brand-teal text-sm">Call Records</h3>
+              {linkedCalls.length > 0 && (
+                <span className="ml-auto text-xs font-bold bg-brand-teal/10 text-brand-teal px-2 py-0.5 rounded-full">
+                  {linkedCalls.length} linked
+                </span>
+              )}
+            </div>
+
+            {/* Calls already linked to this incident */}
+            {linkedCalls.length > 0 && (
+              <div className="divide-y divide-surface-border/50">
+                {linkedCalls.map(call => (
+                  <div key={call.id} className="px-6 py-3 flex items-center gap-3">
+                    <Phone size={13} weight="fill" className="text-brand-green flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-brand-teal">{call.callFrom}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(call.startedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {' · '}{call.talkDuration}s talk
+                      </p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                      call.status === 'ANSWERED' ? 'bg-brand-green/10 text-brand-green' : 'bg-slate-100 text-slate-400'
+                    }`}>{call.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recent unlinked calls */}
+            <div className={`p-4 ${linkedCalls.length > 0 ? 'border-t border-surface-border/50' : ''}`}>
+              <p className="text-xs font-medium text-slate-400 mb-3 uppercase tracking-wide">
+                Recent unlinked calls — tap to link
+              </p>
+              {unlinkedCalls.length === 0 ? (
+                <p className="text-xs text-slate-400 py-2">No recent unlinked inbound calls.</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {unlinkedCalls.map(call => (
+                    <button
+                      key={call.id}
+                      onClick={() => linkCallMutation.mutate(call.id)}
+                      disabled={linkCallMutation.isPending}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-brand-teal/5 border border-transparent hover:border-brand-teal/20 transition-all text-left group disabled:opacity-50"
+                    >
+                      <Phone size={13} weight="fill" className="text-slate-300 group-hover:text-brand-teal flex-shrink-0 transition-colors" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-brand-teal">{call.callFrom}</p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(call.startedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {' · '}{call.talkDuration}s
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0 ${
+                        call.status === 'ANSWERED' ? 'bg-brand-green/10 text-brand-green' : 'bg-slate-100 text-slate-400'
+                      }`}>{call.status}</span>
+                      <Link size={14} className="text-slate-200 group-hover:text-brand-teal flex-shrink-0 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
         </div>
 
