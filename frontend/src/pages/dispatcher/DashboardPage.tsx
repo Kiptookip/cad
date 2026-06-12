@@ -66,6 +66,7 @@ export default function DashboardPage() {
     }));
 
   return (
+    <>
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8 max-w-[1600px] mx-auto w-full">
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -270,5 +271,6 @@ export default function DashboardPage() {
         onClose={() => setClickedVehicle(null)}
       />
     )}
+    </>
   );
 }
