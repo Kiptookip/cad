@@ -499,7 +499,7 @@ export default function IncidentDetailPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+          <div id="dispatch-panel" className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-surface-border bg-slate-50">
               <h3 className="font-semibold text-brand-teal">Dispatch Assignment</h3>
             </div>
@@ -625,6 +625,10 @@ export default function IncidentDetailPage() {
                 dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
                 isActive: v.isActive,
               }))}
+            onVehicleClick={v => {
+              setSelectedVehicleId(v.vehicleId);
+              document.getElementById('dispatch-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
           />
         </div>
       </div>
