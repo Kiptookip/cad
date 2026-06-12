@@ -16,6 +16,15 @@ export default function DashboardPage() {
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [clickedVehicle, setClickedVehicle] = useState<LiveVehicle | null>(null);
 
+  const { data: analyticsData } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: async () => {
+      const res = await api.get('/analytics');
+      return res.data.data as { tat: { avgDispatchMinutes: number | null; avgSceneMinutes: number | null } };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Query to get recent incidents
   const { data: incidentsData } = useQuery({
     queryKey: ['incidents', 'recent'],
@@ -50,6 +59,16 @@ export default function DashboardPage() {
       socket.off('incident:new');
     };
   }, []);
+
+  const avgResponseDisplay = (() => {
+    const d = analyticsData?.tat.avgDispatchMinutes;
+    const s = analyticsData?.tat.avgSceneMinutes;
+    if (d == null && s == null) return '—';
+    const total = (d ?? 0) + (s ?? 0);
+    const mins = Math.floor(total);
+    const secs = Math.round((total - mins) * 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  })();
 
   const queueCount = queueData?.length ?? 0;
   const recentIncidents = incidentsData ?? [];
@@ -104,8 +123,8 @@ export default function DashboardPage() {
             <p className="text-xs font-medium text-slate-400">Avg Response</p>
             <Timer size={16} className="text-brand-green" />
           </div>
-          <p className="text-3xl font-bold text-white leading-none">—</p>
-          <p className="text-xs text-white/30 mt-2">Target: 8:00</p>
+          <p className="text-3xl font-bold text-white leading-none">{avgResponseDisplay}</p>
+          <p className="text-xs text-white/30 mt-2">30-day avg · Target: 8:00</p>
         </div>
       </div>
 

@@ -24,6 +24,7 @@ export default function IncidentDetailPage() {
   const [editedLocation, setEditedLocation] = useState('');
   const [editedPlaceOfReferral, setEditedPlaceOfReferral] = useState('');
   const [editedDispatcherChallenges, setEditedDispatcherChallenges] = useState('');
+  const [editedPcrUrl, setEditedPcrUrl] = useState('');
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveReason, setResolveReason] = useState('');
@@ -44,6 +45,7 @@ export default function IncidentDetailPage() {
       setEditedLocation(data.locationName);
       setEditedPlaceOfReferral(data.placeOfReferral ?? '');
       setEditedDispatcherChallenges(data.dispatcherChallenges ?? '');
+      setEditedPcrUrl(data.pcrUrl ?? '');
       return data;
     },
     enabled: !!id,
@@ -331,6 +333,7 @@ export default function IncidentDetailPage() {
                       locationName: editedLocation,
                       placeOfReferral: editedPlaceOfReferral || undefined,
                       dispatcherChallenges: editedDispatcherChallenges || undefined,
+                      pcrUrl: editedPcrUrl || undefined,
                     })}
                     disabled={updateMutation.isPending}
                     className="px-4 py-1.5 bg-brand-teal text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
@@ -399,6 +402,29 @@ export default function IncidentDetailPage() {
                   />
                 ) : (
                   <p className="text-sm text-brand-teal">{incident.dispatcherChallenges || '—'}</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">PCR Report URL</label>
+                {isEditingBrief ? (
+                  <input
+                    type="url"
+                    value={editedPcrUrl}
+                    onChange={e => setEditedPcrUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal outline-none transition-all"
+                  />
+                ) : incident.pcrUrl ? (
+                  <a
+                    href={incident.pcrUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-brand-teal underline hover:opacity-70 transition-opacity"
+                  >
+                    View PCR Report →
+                  </a>
+                ) : (
+                  <p className="text-sm text-slate-400">—</p>
                 )}
               </div>
               <div className="col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-100">

@@ -193,6 +193,7 @@ export class IncidentService {
       placeOfReferral?: string;
       hospitalLevelRequired?: number;
       preHospitalManagement?: string;
+      pcrUrl?: string;
     }
   ) {
     if (!(<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role)) {
@@ -213,7 +214,7 @@ export class IncidentService {
       'dispatcherChallenges', 'patientName', 'patientAge', 'patientGender',
       'patientContact', 'nextOfKin', 'nextOfKinPhone', 'alertNature',
       'alertNatureDetail', 'placeOfReferral', 'hospitalLevelRequired',
-      'preHospitalManagement',
+      'preHospitalManagement', 'pcrUrl',
     ] as const;
 
     for (const field of editableFields) {

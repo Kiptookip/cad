@@ -180,6 +180,35 @@ export class TaskService {
   }
 
   /**
+   * Returns paginated completed/cancelled tasks for the current responder.
+   */
+  async getTaskHistory(userId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.app.prisma.task.findMany({
+        where: {
+          OR: [{ driverId: userId }, { emtId: userId }, { nurseId: userId }],
+          status: { in: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+        },
+        orderBy: { receivedAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          incident: { select: { id: true, caseNumber: true, chiefComplaint: true, locationName: true, subCounty: true } },
+          vehicle: { select: { id: true, registrationNumber: true } },
+        },
+      }),
+      this.app.prisma.task.count({
+        where: {
+          OR: [{ driverId: userId }, { emtId: userId }, { nurseId: userId }],
+          status: { in: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+        },
+      }),
+    ]);
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  /**
    * Logs patient vitals and pre-hospital management notes for a task.
    */
   async updatePatientData(

@@ -45,6 +45,21 @@ export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   );
 
   /**
+   * GET /tasks/history?page=1&limit=20
+   * Returns paginated completed/cancelled tasks for the current responder.
+   */
+  app.get<{ Querystring: { page?: string; limit?: string } }>(
+    '/history',
+    { preValidation: [requireRole([Role.DRIVER, Role.EMT, Role.NURSE])] },
+    async (request, reply) => {
+      const page = request.query.page ? parseInt(request.query.page, 10) : 1;
+      const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
+      const result = await taskService.getTaskHistory(request.user.userId, page, limit);
+      return reply.send({ ok: true, ...result });
+    }
+  );
+
+  /**
    * POST /tasks/:id/patient-data
    * Crew logs patient vitals and pre-hospital management notes.
    */

@@ -13,6 +13,8 @@ export default function AppShell() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(socket.connected);
+  const [reconnectedFlash, setReconnectedFlash] = useState(false);
 
   useEffect(() => {
     if (!token || !user) return;
@@ -25,7 +27,12 @@ export default function AppShell() {
         userId: user.id,
         roles: [user.role],
       });
+      setIsConnected(true);
+      setReconnectedFlash(true);
     });
+
+    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('connect_error', () => setIsConnected(false));
 
     // If already connected when this effect runs (e.g. role switch), join immediately
     if (socket.connected) {
@@ -61,11 +68,19 @@ export default function AppShell() {
 
     return () => {
       socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
       socket.off('incident:new');
       socket.off('fleet:offline');
       socket.off('task:assigned');
     };
   }, [addNotification, token, user]);
+
+  useEffect(() => {
+    if (!reconnectedFlash) return;
+    const t = setTimeout(() => setReconnectedFlash(false), 3000);
+    return () => clearTimeout(t);
+  }, [reconnectedFlash]);
 
   // Redirect to login if not authenticated - MUST BE AFTER ALL HOOKS
   if (!token) return <Navigate to="/login" replace />;
@@ -75,6 +90,18 @@ export default function AppShell() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
         <TopBar onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
+        {!isConnected && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-status-warning/10 border-b border-status-warning/30 text-status-warning text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-status-warning animate-pulse flex-shrink-0"></span>
+            Live connection lost — retrying…
+          </div>
+        )}
+        {isConnected && reconnectedFlash && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-brand-green/10 border-b border-brand-green/30 text-brand-green text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-brand-green flex-shrink-0"></span>
+            Reconnected
+          </div>
+        )}
         <main className="flex-1">
           <Outlet />
         </main>
