@@ -66,6 +66,14 @@ export default function AppShell() {
       });
     });
 
+    socket.on('incident:escalated', (data: { caseNumber: string; locationName: string; massCasualtyCount: number }) => {
+      addNotification({
+        type: 'error',
+        title: `MCI DECLARED — ${data.caseNumber}`,
+        message: `${data.massCasualtyCount} casualties at ${data.locationName}. Immediate response required.`,
+      });
+    });
+
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -73,6 +81,7 @@ export default function AppShell() {
       socket.off('incident:new');
       socket.off('fleet:offline');
       socket.off('task:assigned');
+      socket.off('incident:escalated');
     };
   }, [addNotification, token, user]);
 

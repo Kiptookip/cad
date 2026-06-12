@@ -158,6 +158,47 @@ export const incidentRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
   );
 
   /**
+   * POST /incidents/:id/escalate
+   * Marks the incident as a Mass Casualty Incident and alerts all dispatchers.
+   */
+  const escalateSchema = z.object({
+    massCasualtyCount: z.number().int().min(1, 'Casualty count must be at least 1'),
+    notes: z.string().optional(),
+  });
+
+  app.post<{ Params: { id: string } }>(
+    '/:id/escalate',
+    { preValidation: [requireRole([Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
+    async (request, reply) => {
+      const parsed = escalateSchema.safeParse(request.body);
+      if (!parsed.success) throw new BadRequestError(parsed.error.issues[0].message);
+      const updated = await incidentService.escalateIncident(
+        request.params.id,
+        { userId: request.user.userId, role: request.user.role },
+        parsed.data.massCasualtyCount,
+        parsed.data.notes
+      );
+      return reply.send({ ok: true, data: updated });
+    }
+  );
+
+  /**
+   * POST /incidents/:id/deescalate
+   * Removes the MCI flag from an incident.
+   */
+  app.post<{ Params: { id: string } }>(
+    '/:id/deescalate',
+    { preValidation: [requireRole([Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
+    async (request, reply) => {
+      const updated = await incidentService.deescalateIncident(
+        request.params.id,
+        { userId: request.user.userId, role: request.user.role }
+      );
+      return reply.send({ ok: true, data: updated });
+    }
+  );
+
+  /**
    * GET /incidents/:id/tat
    * Returns a step-by-step TAT breakdown for a single incident.
    */

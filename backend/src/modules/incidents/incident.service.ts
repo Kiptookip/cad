@@ -152,6 +152,13 @@ export class IncidentService {
             driver: { select: { name: true, phone: true } },
           },
         },
+        forwardingLogs: {
+          include: {
+            fromAgency: { select: { id: true, name: true } },
+            toAgency: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -320,6 +327,78 @@ export class IncidentService {
     const totalMs = first && last ? last.getTime() - first.getTime() : null;
 
     return { steps, totalMs };
+  }
+
+  async escalateIncident(
+    id: string,
+    user: { userId: string; role: Role },
+    massCasualtyCount: number,
+    notes?: string
+  ) {
+    if (!(<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role)) {
+      throw new ForbiddenError('Only dispatchers and admins can escalate incidents');
+    }
+
+    const incident = await this.app.prisma.incident.findUnique({ where: { id } });
+    if (!incident) throw new NotFoundError('Incident not found');
+
+    const updated = await this.app.prisma.incident.update({
+      where: { id },
+      data: {
+        massCasualty: true,
+        massCasualtyCount,
+        ...(notes ? { dispatcherComments: notes } : {}),
+      },
+    });
+
+    await this.writeAudit({
+      userId: user.userId,
+      action: 'ESCALATE',
+      subjectId: id,
+      oldValues: { massCasualty: incident.massCasualty, massCasualtyCount: incident.massCasualtyCount },
+      newValues: { massCasualty: true, massCasualtyCount, ...(notes ? { notes } : {}) },
+    });
+
+    this.app.io
+      .to(`role:${Role.DISPATCHER}`)
+      .to(`role:${Role.ADMIN}`)
+      .to(`role:${Role.SUPER_ADMIN}`)
+      .emit('incident:escalated', {
+        id,
+        caseNumber: incident.caseNumber,
+        locationName: incident.locationName,
+        massCasualtyCount,
+      });
+
+    this.app.io.to(`incident:${id}`).emit('incident:update', updated);
+
+    return updated;
+  }
+
+  async deescalateIncident(id: string, user: { userId: string; role: Role }) {
+    if (!(<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role)) {
+      throw new ForbiddenError('Only dispatchers and admins can de-escalate incidents');
+    }
+
+    const incident = await this.app.prisma.incident.findUnique({ where: { id } });
+    if (!incident) throw new NotFoundError('Incident not found');
+
+    const updated = await this.app.prisma.incident.update({
+      where: { id },
+      data: { massCasualty: false, massCasualtyCount: null },
+    });
+
+    await this.writeAudit({
+      userId: user.userId,
+      action: 'DEESCALATE',
+      subjectId: id,
+      oldValues: { massCasualty: true, massCasualtyCount: incident.massCasualtyCount },
+      newValues: { massCasualty: false },
+    });
+
+    this.app.io.to(`incident:${id}`).emit('incident:update', updated);
+
+    return updated;
   }
 
   async getPartnerAgencies() {

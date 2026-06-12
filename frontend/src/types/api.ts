@@ -122,6 +122,16 @@ export interface Incident {
   watcher?: Pick<User, 'id' | 'name' | 'phone'>;
   dispatcher?: Pick<User, 'id' | 'name' | 'phone'>;
   tasks?: Task[];
+  forwardingLogs?: ForwardingLog[];
+}
+
+export interface ForwardingLog {
+  id: string;
+  incidentId: string;
+  reason: string;
+  createdAt: string;
+  fromAgency: { id: string; name: string };
+  toAgency: { id: string; name: string };
 }
 
 export interface Task {

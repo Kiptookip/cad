@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer } from '@phosphor-icons/react';
+import { CaretRight, MapPin, PencilSimple, PaperPlaneRight, Printer, ArrowCircleUp, CheckCircle, Phone, ClockCounterClockwise, CaretDown, ShareNetwork, XCircle, Timer, Warning, ArrowCircleDown } from '@phosphor-icons/react';
 import api from '../../api/client';
 import { Incident, Vehicle, AuditLog } from '../../types/api';
 import EndCaseModal from '../../components/shared/EndCaseModal';
@@ -34,6 +34,10 @@ export default function IncidentDetailPage() {
   const [partnerAssignReason, setPartnerAssignReason] = useState('');
   const [dialModal, setDialModal] = useState<{ number: string } | null>(null);
   const [dialExt, setDialExt] = useState('');
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [showDeescalateConfirm, setShowDeescalateConfirm] = useState(false);
+  const [escalateCasualtyCount, setEscalateCasualtyCount] = useState('');
+  const [escalateNotes, setEscalateNotes] = useState('');
 
   // Fetch Incident
   const { data: incident, isLoading } = useQuery({
@@ -209,6 +213,36 @@ export default function IncidentDetailPage() {
     },
   });
 
+  const escalateMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/incidents/${id}/escalate`, {
+        massCasualtyCount: Number(escalateCasualtyCount),
+        notes: escalateNotes || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+      setShowEscalateModal(false);
+      setEscalateCasualtyCount('');
+      setEscalateNotes('');
+      addNotification({ type: 'error', title: 'MCI Declared', message: `Case ${incident?.caseNumber} escalated. All dispatchers have been alerted.` });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Escalation Failed', message: err?.response?.data?.message || 'Could not escalate incident.' });
+    },
+  });
+
+  const deescalateMutation = useMutation({
+    mutationFn: () => api.post(`/incidents/${id}/deescalate`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+      setShowDeescalateConfirm(false);
+      addNotification({ type: 'success', title: 'De-escalated', message: `MCI flag removed from case ${incident?.caseNumber}.` });
+    },
+    onError: (err: any) => {
+      addNotification({ type: 'error', title: 'Failed', message: err?.response?.data?.message || 'Could not de-escalate.' });
+    },
+  });
+
   if (isLoading) return <div className="p-10 font-bold text-center text-slate-text">Loading Incident Details...</div>;
   if (!incident) return <div className="p-10 font-bold text-center text-status-danger">Incident Not Found</div>;
 
@@ -264,20 +298,24 @@ export default function IncidentDetailPage() {
             <ShareNetwork size={16} weight="bold" />
             Assign to Partner
           </button>
-          <button
-            onClick={() => {
-              updateMutation.mutate({ massCasualty: true });
-              addNotification({
-                type: 'error',
-                title: 'Escalated',
-                message: `Incident ${incident.caseNumber} has been escalated.`
-              });
-            }}
-            className="px-4 py-2 border border-status-danger/30 text-status-danger text-sm font-medium rounded-lg hover:bg-status-danger hover:text-white transition-all flex items-center gap-2"
-          >
-            <ArrowCircleUp size={16} weight="bold" />
-            Escalate
-          </button>
+          {incident.massCasualty ? (
+            <button
+              onClick={() => setShowDeescalateConfirm(true)}
+              className="px-4 py-2 border border-slate-300 text-slate-500 text-sm font-medium rounded-lg hover:bg-slate-100 transition-all flex items-center gap-2"
+            >
+              <ArrowCircleDown size={16} weight="bold" />
+              De-escalate
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowEscalateModal(true)}
+              disabled={incident.status === 'RESOLVED'}
+              className="px-4 py-2 border border-status-danger/30 text-status-danger text-sm font-medium rounded-lg hover:bg-status-danger hover:text-white transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ArrowCircleUp size={16} weight="bold" />
+              Escalate to MCI
+            </button>
+          )}
           <button
             onClick={() => setShowResolveModal(true)}
             disabled={incident.status === 'RESOLVED'}
@@ -497,6 +535,39 @@ export default function IncidentDetailPage() {
               )}
             </div>
           </div>
+
+          {/* Forwarding History */}
+          {(incident.forwardingLogs ?? []).length > 0 && (
+            <div className="bg-white border border-surface-border rounded-xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex items-center gap-2">
+                <ShareNetwork size={16} weight="bold" className="text-brand-teal" />
+                <h3 className="font-semibold text-brand-teal text-sm">Partner Forwarding History</h3>
+                <span className="ml-auto text-xs font-bold bg-brand-teal/10 text-brand-teal px-2 py-0.5 rounded-full">
+                  {incident.forwardingLogs!.length}
+                </span>
+              </div>
+              <div className="divide-y divide-surface-border/50">
+                {incident.forwardingLogs!.map((log, i) => (
+                  <div key={log.id} className="px-6 py-4 flex gap-4 items-start">
+                    <div className="w-6 h-6 rounded-full bg-brand-teal/10 text-brand-teal text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-slate-400">{log.fromAgency.name}</span>
+                        <span className="text-xs text-slate-300">→</span>
+                        <span className="text-sm font-semibold text-brand-teal">{log.toAgency.name}</span>
+                        <span className="ml-auto text-xs text-slate-400 whitespace-nowrap">
+                          {new Date(log.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 italic">"{log.reason}"</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -850,7 +921,7 @@ export default function IncidentDetailPage() {
                 Assign to Partner
               </h3>
               <p className="text-sm text-slate-text mt-1">
-                Forward case <span className="font-semibold text-brand-teal">{incident.caseNumber}</span> to a partner agency for handling.
+                Forward case <span className="font-semibold text-brand-teal">{incident.caseNumber}</span> to a partner agency. The case stays on your system with the forwarding logged. The partner agency will be notified immediately via their portal.
               </p>
             </div>
             <div>
@@ -943,6 +1014,93 @@ export default function IncidentDetailPage() {
               >
                 <Phone size={16} weight="fill" />
                 {dialMutation.isPending ? 'Calling...' : 'Call Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Escalate to MCI Modal */}
+      {showEscalateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl border border-surface-border w-full max-w-md mx-4 p-6 flex flex-col gap-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-status-danger/10 flex items-center justify-center flex-shrink-0">
+                <Warning size={20} weight="fill" className="text-status-danger" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-brand-teal">Escalate to Mass Casualty Incident</h3>
+                <p className="text-sm text-slate-text mt-1">
+                  This will flag <span className="font-semibold text-brand-teal">{incident.caseNumber}</span> as an MCI and send an urgent alert to <span className="font-semibold">all active dispatchers and admins</span>.
+                </p>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-text block mb-1.5">Estimated Casualties <span className="text-status-danger">*</span></label>
+              <input
+                type="number"
+                min="1"
+                autoFocus
+                value={escalateCasualtyCount}
+                onChange={e => setEscalateCasualtyCount(e.target.value)}
+                placeholder="e.g. 12"
+                className="w-full border border-surface-border rounded-lg px-4 py-2.5 text-sm font-semibold text-brand-teal focus:ring-2 focus:ring-status-danger/30 focus:border-status-danger outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-text block mb-1.5">Additional Notes (optional)</label>
+              <textarea
+                value={escalateNotes}
+                onChange={e => setEscalateNotes(e.target.value)}
+                rows={3}
+                placeholder="e.g. Multi-vehicle RTA on Thika Road, heavy extrication required..."
+                className="w-full border border-surface-border rounded-lg px-4 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-status-danger/30 focus:border-status-danger transition-all"
+              />
+            </div>
+            <div className="bg-status-danger/5 border border-status-danger/20 rounded-lg px-4 py-3">
+              <p className="text-xs text-status-danger font-medium">All connected dispatchers will receive an immediate MCI alert notification.</p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowEscalateModal(false); setEscalateCasualtyCount(''); setEscalateNotes(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => escalateMutation.mutate()}
+                disabled={!escalateCasualtyCount || Number(escalateCasualtyCount) < 1 || escalateMutation.isPending}
+                className="px-5 py-2 bg-status-danger text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Warning size={16} weight="fill" />
+                {escalateMutation.isPending ? 'Escalating...' : 'Declare MCI'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* De-escalate Confirm */}
+      {showDeescalateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl border border-surface-border w-full max-w-sm mx-4 p-6 flex flex-col gap-4">
+            <h3 className="text-base font-bold text-brand-teal">Remove MCI Flag</h3>
+            <p className="text-sm text-slate-text">
+              This will remove the Mass Casualty Incident flag from <span className="font-semibold">{incident.caseNumber}</span> and clear the casualty count. The case will remain open.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeescalateConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deescalateMutation.mutate()}
+                disabled={deescalateMutation.isPending}
+                className="px-5 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {deescalateMutation.isPending ? 'Removing...' : 'De-escalate'}
               </button>
             </div>
           </div>
