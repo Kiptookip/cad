@@ -16,8 +16,6 @@ import { useActiveCalls } from '../../hooks/useActiveCalls';
 import { Link, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -35,7 +33,7 @@ const navItems = [
   { label: 'Partner Dashboard', path: '/partner/dashboard', Icon: SquaresFour, roles: ['PARTNER'] },
 ];
 
-export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
   const location = useLocation();
   const activeCalls = useActiveCalls();
@@ -47,15 +45,6 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 39 }}
-          onClick={onClose}
-        />
-      )}
-
-      {/* Desktop sidebar */}
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
         {/* Brand header */}
         <div className="sidebar-head">
@@ -86,7 +75,6 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={onClose}
                   className={`nav-item${isActive ? ' active' : ''}`}
                 >
                   <item.Icon size={20} weight={isActive ? 'fill' : 'regular'} />
