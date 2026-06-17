@@ -19,10 +19,7 @@ const PCR_ALLOWED_MIMES = new Set([
 export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const taskService = new TaskService(app);
 
-  app.addHook('preValidation', async (request, reply) => {
-    if (request.routeOptions.url?.endsWith('/:taskId/patient-care-reports/:reportId/file')) return;
-    await app.authenticate(request, reply);
-  });
+  app.addHook('preValidation', app.authenticate);
 
   /**
    * POST /tasks
@@ -172,7 +169,6 @@ export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
    */
   app.get<{ Params: { taskId: string; reportId: string } }>(
     '/:taskId/patient-care-reports/:reportId/file',
-    { preValidation: [app.authenticate] },
     async (request, reply) => {
       const reports = await taskService.listPatientCareReports(request.params.taskId, {
         userId: request.user.userId,
