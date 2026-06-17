@@ -3,11 +3,26 @@ import { TaskService } from './task.service.js';
 import { requireRole } from '../../shared/guards/requireRole.js';
 import { TaskStatus, Role } from '../../shared/types/index.js';
 import { BadRequestError } from '../../shared/errors/AppError.js';
+import path from 'node:path';
+import { createReadStream, existsSync } from 'node:fs';
+
+const PCR_ALLOWED_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const taskService = new TaskService(app);
 
-  app.addHook('preValidation', app.authenticate);
+  app.addHook('preValidation', async (request, reply) => {
+    if (request.routeOptions.url?.endsWith('/:taskId/patient-care-reports/:reportId/file')) return;
+    await app.authenticate(request, reply);
+  });
 
   /**
    * POST /tasks
@@ -101,6 +116,78 @@ export const taskRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         request.body.reason
       );
       return reply.send({ ok: true, data: updated });
+    }
+  );
+
+  /**
+   * POST /tasks/:id/patient-care-report
+   * Upload a patient care report (image) + optional note after task completion.
+   *
+   * Expects multipart/form-data:
+   * - file: image/*, application/pdf, or .docx
+   * - note: string (optional)
+   */
+  app.post<{ Params: { id: string } }>(
+    '/:id/patient-care-report',
+    { preValidation: [requireRole([Role.DRIVER, Role.EMT, Role.NURSE])] },
+    async (request, reply) => {
+      const file = await (request as any).file?.();
+      if (!file) throw new BadRequestError('file is required');
+      if (!PCR_ALLOWED_MIMES.has(file.mimetype)) {
+        throw new BadRequestError('file must be an image, PDF, or DOCX document');
+      }
+
+      const note = file.fields?.note?.value;
+
+      const report = await taskService.uploadPatientCareReport(
+        request.params.id,
+        { userId: request.user.userId, role: request.user.role },
+        { filename: file.filename, mimetype: file.mimetype, file: file.file },
+        typeof note === 'string' ? note : undefined
+      );
+
+      return reply.status(201).send({ ok: true, data: report });
+    }
+  );
+
+  /**
+   * GET /tasks/:id/patient-care-reports
+   * List previously uploaded patient care reports (metadata only).
+   */
+  app.get<{ Params: { id: string } }>(
+    '/:id/patient-care-reports',
+    { preValidation: [requireRole([Role.DRIVER, Role.EMT, Role.NURSE, Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN])] },
+    async (request, reply) => {
+      const reports = await taskService.listPatientCareReports(request.params.id, {
+        userId: request.user.userId,
+        role: request.user.role,
+      });
+      return reply.send({ ok: true, data: reports });
+    }
+  );
+
+  /**
+   * GET /tasks/:taskId/patient-care-reports/:reportId/file
+   * Streams the uploaded file (requires auth via Bearer header).
+   */
+  app.get<{ Params: { taskId: string; reportId: string } }>(
+    '/:taskId/patient-care-reports/:reportId/file',
+    { preValidation: [app.authenticate] },
+    async (request, reply) => {
+      const reports = await taskService.listPatientCareReports(request.params.taskId, {
+        userId: request.user.userId,
+        role: request.user.role,
+      });
+      const report = reports.find((r) => r.id === request.params.reportId);
+      if (!report) throw new BadRequestError('Report not found');
+
+      const fileName = path.basename(report.filePath);
+      const filePath = path.resolve(process.cwd(), 'uploads', 'pcr', fileName);
+      if (!existsSync(filePath)) throw new BadRequestError('File not found on server');
+
+      reply.header('Content-Type', report.mimeType || 'application/octet-stream');
+      reply.header('Content-Disposition', `inline; filename="${fileName}"`);
+      return reply.send(createReadStream(filePath));
     }
   );
 };

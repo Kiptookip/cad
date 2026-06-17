@@ -110,6 +110,8 @@ model User {
   currentEmtVehicles    Vehicle[] @relation("VehicleCurrentEmt")
   currentNurseVehicles  Vehicle[] @relation("VehicleCurrentNurse")
 
+  uploadedPatientCareReports PatientCareReport[] @relation("UserUploadedPatientCareReports")
+
   @@map("users")
 }
 
@@ -232,7 +234,26 @@ model Task {
   nurseId String? @map("nurse_id")
   nurse   User?   @relation("TaskNurse", fields: [nurseId], references: [id])
 
+  patientCareReports PatientCareReport[]
+
   @@map("tasks")
+}
+
+model PatientCareReport {
+  id        String   @id @default(uuid())
+  note      String   @default("")
+  filePath  String   @map("file_path")
+  mimeType  String   @map("mime_type")
+  fileSize  Int      @map("file_size")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  taskId     String @map("task_id")
+  task       Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploaderId String @map("uploader_id")
+  uploader   User   @relation(fields: [uploaderId], references: [id], name: "UserUploadedPatientCareReports")
+
+  @@index([taskId])
+  @@map("patient_care_reports")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

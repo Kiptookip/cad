@@ -1,11 +1,93 @@
 import { FastifyInstance } from 'fastify';
 import { TaskStatus, IncidentStatus, Role, VehicleStatus } from '../../shared/types/index.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors/AppError.js';
+import { createWriteStream, promises as fs } from 'node:fs';
+import path from 'node:path';
 
 
 
 export class TaskService {
   constructor(private app: FastifyInstance) {}
+
+  private uploadsDir() {
+    // Use repo-local uploads dir (works in dev). In production, prefer object storage.
+    return path.resolve(process.cwd(), 'uploads', 'pcr');
+  }
+
+  private async ensureUploadsDir() {
+    await fs.mkdir(this.uploadsDir(), { recursive: true });
+  }
+
+  async uploadPatientCareReport(
+    taskId: string,
+    user: { userId: string; role: Role },
+    file: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
+    note?: string
+  ) {
+    const task = await this.app.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundError('Task not found');
+
+    const isCrew = [task.driverId, task.emtId, task.nurseId].includes(user.userId);
+    if (!isCrew) throw new ForbiddenError('You are not assigned to this task');
+
+    if (task.status !== TaskStatus.COMPLETED) {
+      throw new BadRequestError('Patient care report can only be uploaded after task is completed');
+    }
+
+    await this.ensureUploadsDir();
+
+    const ext = path.extname(file.filename) || '';
+    const safeExt = ext.length <= 10 ? ext : '';
+    const storedName = `${taskId}-${Date.now()}${safeExt}`;
+    const storedPath = path.join(this.uploadsDir(), storedName);
+
+    await new Promise<void>((resolve, reject) => {
+      const out = createWriteStream(storedPath);
+      file.file.pipe(out);
+      out.on('finish', () => resolve());
+      out.on('error', reject);
+      file.file.on('error', reject);
+    });
+
+    const stat = await fs.stat(storedPath);
+
+    const report = await this.app.prisma.patientCareReport.create({
+      data: {
+        taskId,
+        uploaderId: user.userId,
+        note: note ?? '',
+        filePath: storedName,
+        mimeType: file.mimetype,
+        fileSize: stat.size,
+      },
+    });
+
+    return report;
+  }
+
+  async listPatientCareReports(taskId: string, user: { userId: string; role: Role }) {
+    const task = await this.app.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundError('Task not found');
+
+    const isCrew = [task.driverId, task.emtId, task.nurseId].includes(user.userId);
+    const isDispatch = (<Role[]>[Role.DISPATCHER, Role.ADMIN, Role.SUPER_ADMIN]).includes(user.role);
+    if (!isCrew && !isDispatch) throw new ForbiddenError('You do not have permission to view reports for this task');
+
+    return this.app.prisma.patientCareReport.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        taskId: true,
+        uploaderId: true,
+        note: true,
+        filePath: true,
+        mimeType: true,
+        fileSize: true,
+        createdAt: true,
+      },
+    });
+  }
 
   /**
    * Creates a new task by dispatching a vehicle to an incident.
@@ -196,6 +278,8 @@ export class TaskService {
         include: {
           incident: { select: { id: true, caseNumber: true, chiefComplaint: true, locationName: true, subCounty: true } },
           vehicle: { select: { id: true, registrationNumber: true } },
+          _count: { select: { patientCareReports: true } },
+          patientCareReports: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
         },
       }),
       this.app.prisma.task.count({
@@ -205,7 +289,12 @@ export class TaskService {
         },
       }),
     ]);
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((t: any) => ({
+      ...t,
+      pcrCount: t._count?.patientCareReports ?? 0,
+      lastPcrAt: t.patientCareReports?.[0]?.createdAt ?? null,
+    }));
+    return { data: enriched, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   /**

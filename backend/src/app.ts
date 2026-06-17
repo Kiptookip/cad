@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import { registerEnv } from './config/env.js';
 import prismaPlugin from './plugins/prisma.js';
 import jwtPlugin from './plugins/jwt.js';
@@ -55,6 +56,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: app.config.CORS_ORIGIN,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  });
+
+  // ── Multipart uploads (PCR images, etc.) ────────────────────────────────────
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+      files: 1,
+    },
   });
 
   // ── Health check ──────────────────────────────────────────────────────────
