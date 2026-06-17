@@ -128,9 +128,23 @@ export default function FacilitiesPage() {
     }, 400);
   }
 
+  function detectSubCounty(address: Record<string, string>): string {
+    const candidates = [
+      address.city_district, address.suburb, address.county,
+      address.state_district, address.municipality,
+    ].filter(Boolean).map(s => s.toLowerCase());
+    for (const sub of NAIROBI_SUB_COUNTIES) {
+      const subLower = sub.toLowerCase();
+      if (candidates.some(c => c.includes(subLower) || subLower.includes(c))) return sub;
+    }
+    return '';
+  }
+
   function selectSuggestion(s: any) {
     setPin({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
     setLocationQuery(s.display_name.split(',').slice(0, 2).join(',').trim());
+    const detected = detectSubCounty(s.address ?? {});
+    if (detected) setForm(f => ({ ...f, subCounty: detected }));
     setSuggestions([]);
     setShowSuggestions(false);
   }
@@ -145,6 +159,8 @@ export default function FacilitiesPage() {
       const data = await res.json();
       if (data?.display_name) {
         setLocationQuery(data.display_name.split(',').slice(0, 2).join(',').trim());
+        const detected = detectSubCounty(data.address ?? {});
+        if (detected) setForm(f => ({ ...f, subCounty: detected }));
       }
     } catch {} finally { setIsReverseGeocoding(false); }
   }
