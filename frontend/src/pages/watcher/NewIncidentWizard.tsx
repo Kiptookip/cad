@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle, MapPin, PaperPlaneRight, ClipboardText,
   X, Phone, User, WarningCircle, FirstAid, ListChecks, XCircle,
+  ArrowRight, ArrowLeft, PencilSimple,
 } from '@phosphor-icons/react';
 import api from '../../api/client';
 import Map from '../../components/shared/Map';
@@ -26,12 +27,24 @@ const ORIGIN_OPTIONS = [
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 
-const inputCls = 'w-full h-11 px-4 border-2 border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand-teal focus:border-brand-teal outline-none text-slate-700 placeholder:text-slate-300 bg-white transition-all';
+const inputCls = [
+  'w-full h-11 px-4 rounded-lg text-sm font-medium outline-none transition-all',
+  'border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)]',
+  'placeholder:text-[var(--muted-2)]',
+  'focus:ring-2 focus:ring-brand-green focus:border-brand-green',
+].join(' ');
+
 const selectCls = inputCls;
-const textareaCls = 'w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand-teal focus:border-brand-teal outline-none resize-none text-slate-700 placeholder:text-slate-300 bg-white transition-all';
+
+const textareaCls = [
+  'w-full px-4 py-3 rounded-lg text-sm font-medium outline-none resize-none transition-all',
+  'border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)]',
+  'placeholder:text-[var(--muted-2)]',
+  'focus:ring-2 focus:ring-brand-green focus:border-brand-green',
+].join(' ');
 
 const Label = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
-  <label className="block text-sm font-bold text-brand-teal mb-2">
+  <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)' }}>
     {children}
     {required && <span className="text-status-danger ml-1">*</span>}
   </label>
@@ -42,26 +55,86 @@ const Field = ({ children, className }: { children: React.ReactNode; className?:
 );
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-xs text-slate-400 mt-1">{children}</p>
+  <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>{children}</p>
 );
 
-// ── Section wrapper ───────────────────────────────────────────────────────────
+// ── Review row ────────────────────────────────────────────────────────────────
 
-function FormSection({
-  title, icon: Icon, step, children,
+function ReviewRow({ label, value }: { label: string; value?: string | boolean }) {
+  if (!value && value !== false) return null;
+  return (
+    <div className="flex gap-4 py-2 border-b border-[var(--border)] last:border-0">
+      <span className="text-[10px] font-black uppercase tracking-widest w-28 shrink-0 pt-0.5" style={{ color: 'var(--muted)' }}>{label}</span>
+      <span className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{String(value)}</span>
+    </div>
+  );
+}
+
+// ── Wizard stepper ────────────────────────────────────────────────────────────
+
+const STEPS = ['Patient', 'Location', 'Review'];
+
+function WizardStepper({ current }: { current: number }) {
+  return (
+    <div
+      className="flex items-start px-6 py-4 border-b shrink-0"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+    >
+      {STEPS.map((label, i) => {
+        const num = i + 1;
+        const done = num < current;
+        const active = num === current;
+        return (
+          <Fragment key={label}>
+            <div className="flex flex-col items-center gap-1.5 shrink-0">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                  done
+                    ? 'bg-brand-green text-white'
+                    : active
+                    ? 'bg-brand-green text-white shadow-[0_0_0_4px_rgba(0,90,50,0.18)]'
+                    : 'bg-[var(--surface-3)] text-[var(--muted)]'
+                }`}
+              >
+                {done ? <CheckCircle size={15} weight="fill" /> : num}
+              </div>
+              <span
+                className={`text-[9px] font-black uppercase tracking-widest ${
+                  active || done ? 'text-brand-green' : 'text-[var(--muted)]'
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`h-0.5 flex-1 mx-3 mt-4 rounded-full transition-all ${
+                  num < current ? 'bg-brand-green' : 'bg-[var(--border)]'
+                }`}
+              />
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Section card ──────────────────────────────────────────────────────────────
+
+function SectionCard({
+  title, icon: Icon, children,
 }: {
   title: string;
   icon: React.ElementType;
-  step: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="bg-brand-teal px-5 py-3 flex items-center gap-3">
-        <Icon size={18} weight="fill" className="text-white/80" />
-        <div>
-          <p className="text-[10px] font-bold text-brand-green uppercase tracking-widest">{step}</p>
-          <h2 className="text-sm font-bold text-white">{title}</h2>
+    <div className="card overflow-hidden">
+      <div className="card-head">
+        <div className="flex items-center gap-2.5">
+          <Icon size={16} weight="fill" className="text-brand-green" />
+          <h3 className="card-title">{title}</h3>
         </div>
       </div>
       <div className="p-5 space-y-4">{children}</div>
@@ -69,14 +142,32 @@ function FormSection({
   );
 }
 
-// ── Review row ────────────────────────────────────────────────────────────────
+// ── Review card ───────────────────────────────────────────────────────────────
 
-function ReviewRow({ label, value }: { label: string; value?: string | boolean }) {
-  if (!value && value !== false) return null;
+function ReviewCard({
+  title, onEdit, children,
+}: {
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex gap-4 py-2 border-b border-slate-100 last:border-0">
-      <span className="text-xs font-bold text-slate-400 uppercase tracking-wide w-28 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-slate-700 font-medium">{String(value)}</span>
+    <div className="card overflow-hidden">
+      <div
+        className="px-4 py-3 border-b flex items-center justify-between"
+        style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
+      >
+        <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+          {title}
+        </span>
+        <button
+          onClick={onEdit}
+          className="flex items-center gap-1 text-[10px] font-bold text-brand-green hover:text-brand-teal uppercase tracking-widest transition-colors"
+        >
+          <PencilSimple size={11} weight="bold" /> Edit
+        </button>
+      </div>
+      <div className="px-4 py-1">{children}</div>
     </div>
   );
 }
@@ -142,17 +233,19 @@ export default function NewIncidentWizard() {
 
   const submitted    = (location.state as any)?.submitted;
   const submittedCase = (location.state as any)?.caseNumber;
+  const ended        = (location.state as any)?.ended;
 
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [form, setForm] = useState<FormState>(defaultForm);
-  const [suggestions, setSuggestions]             = useState<Array<{ display_name: string; lat: string; lon: string; address?: Record<string, string> }>>([]);
-  const [showSuggestions, setShowSuggestions]     = useState(false);
+  const [suggestions, setSuggestions]           = useState<Array<{ display_name: string; lat: string; lon: string; address?: Record<string, string> }>>([]);
+  const [showSuggestions, setShowSuggestions]   = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
-  const [showEndReason, setShowEndReason]         = useState(false);
-  const [endReason, setEndReason]                 = useState('');
+  const [showEndReason, setShowEndReason]       = useState(false);
+  const [endReason, setEndReason]               = useState('');
 
   const set = (updates: Partial<FormState>) => setForm(prev => ({ ...prev, ...updates }));
 
-  // ── Nature options from DB (auto-seeded on first call) ────────────────────
+  // ── Nature options from DB ─────────────────────────────────────────────────
   const queryClient = useQueryClient();
   const { data: natureOptions = [] } = useQuery({
     queryKey: ['incident-nature-options'],
@@ -163,7 +256,7 @@ export default function NewIncidentWizard() {
     staleTime: 5 * 60_000,
   });
 
-  const natureList    = natureOptions.map(n => n.nature);
+  const natureList = natureOptions.map(n => n.nature);
   const detailsForNature = (nature: string) =>
     natureOptions.find(n => n.nature === nature)?.details ?? [];
 
@@ -177,16 +270,22 @@ export default function NewIncidentWizard() {
     queryClient.invalidateQueries({ queryKey: ['incident-nature-options'] });
   }
 
-  const canSubmit = !!form.alertMode && !!form.locationName.trim() && !!form.subCounty && !!form.chiefComplaint.trim();
+  // ── Step validation ────────────────────────────────────────────────────────
+  const canGoToStep2 = !!form.alertMode && !!form.chiefComplaint.trim();
+  const canGoToStep3 = !!form.locationName.trim() && !!form.subCounty;
+  const canSubmit    = canGoToStep2 && canGoToStep3;
 
-  const missingFields = [
+  const step1Missing = [
     !form.alertMode      && 'alert mode',
-    !form.locationName   && 'location',
-    !form.subCounty      && 'sub-county',
     !form.chiefComplaint && 'chief complaint',
   ].filter(Boolean) as string[];
 
-  // Tries to match a Nominatim address object against our sub-county list
+  const step2Missing = [
+    !form.locationName && 'location',
+    !form.subCounty    && 'sub-county',
+  ].filter(Boolean) as string[];
+
+  // ── Sub-county detection ───────────────────────────────────────────────────
   function detectSubCounty(address: Record<string, string>): string {
     const candidates = [
       address.city_district,
@@ -205,7 +304,7 @@ export default function NewIncidentWizard() {
     return '';
   }
 
-  // Debounced autocomplete as the user types — includes addressdetails so we can detect sub-county
+  // ── Location autocomplete ──────────────────────────────────────────────────
   useEffect(() => {
     if (form.locationName.length < 3) { setSuggestions([]); return; }
     const timer = setTimeout(async () => {
@@ -222,14 +321,14 @@ export default function NewIncidentWizard() {
   }, [form.locationName]);
 
   const selectSuggestion = (s: { display_name: string; lat: string; lon: string; address?: Record<string, string> }) => {
-    const name           = s.display_name.split(',').slice(0, 2).join(',').trim();
-    const detectedSub    = detectSubCounty(s.address ?? {});
+    const name        = s.display_name.split(',').slice(0, 2).join(',').trim();
+    const detectedSub = detectSubCounty(s.address ?? {});
     set({ locationName: name, lat: parseFloat(s.lat), lng: parseFloat(s.lon), ...(detectedSub ? { subCounty: detectedSub } : {}) });
     setSuggestions([]);
     setShowSuggestions(false);
   };
 
-  // Clicking the map: set pin + reverse geocode → auto-fills location name AND sub-county
+  // ── Map click reverse geocode ──────────────────────────────────────────────
   const handleMapClick = async (lat: number, lng: number) => {
     set({ lat, lng });
     setSuggestions([]);
@@ -248,6 +347,32 @@ export default function NewIncidentWizard() {
     }
   };
 
+  // ── Payload builder ────────────────────────────────────────────────────────
+  const buildPayload = () => ({
+    alertMode:             form.alertMode,
+    alertAt:               form.alertAt,
+    originOfAlert:         form.originOfAlert || undefined,
+    notifierDetails:       form.notifierName ? [{ name: form.notifierName, phone: form.notifierPhone }] : undefined,
+    locationName:          form.locationName,
+    subCounty:             form.subCounty,
+    lat:                   form.lat,
+    lng:                   form.lng,
+    patientName:           form.patientName  || undefined,
+    patientAge:            form.patientAge   || undefined,
+    patientGender:         form.patientGender || undefined,
+    nextOfKin:             form.nextOfKin    || undefined,
+    nextOfKinPhone:        form.nextOfKinPhone || undefined,
+    massCasualty:          form.massCasualty,
+    massCasualtyCount:     form.massCasualtyCount ? parseInt(form.massCasualtyCount, 10) : undefined,
+    chiefComplaint:        form.chiefComplaint,
+    alertNature:           form.alertNature  || undefined,
+    alertNatureDetail:     form.alertNatureDetail || undefined,
+    watcherComments:       form.watcherComments || undefined,
+    preHospitalManagement: form.preHospitalManagement || undefined,
+    placeOfReferral:       form.placeOfReferral || undefined,
+  });
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
   const mutation = useMutation({
     mutationFn: () => api.post('/incidents', buildPayload()),
     onSuccess: (res) => {
@@ -261,31 +386,6 @@ export default function NewIncidentWizard() {
         message: err?.response?.data?.message || 'Could not submit incident.',
       });
     },
-  });
-
-  // Create the incident then immediately close it — used by the "End Case" footer button
-  const buildPayload = () => ({
-    alertMode:            form.alertMode,
-    alertAt:              form.alertAt,
-    originOfAlert:        form.originOfAlert || undefined,
-    notifierDetails:      form.notifierName ? [{ name: form.notifierName, phone: form.notifierPhone }] : undefined,
-    locationName:         form.locationName,
-    subCounty:            form.subCounty,
-    lat:                  form.lat,
-    lng:                  form.lng,
-    patientName:          form.patientName  || undefined,
-    patientAge:           form.patientAge   || undefined,
-    patientGender:        form.patientGender || undefined,
-    nextOfKin:            form.nextOfKin    || undefined,
-    nextOfKinPhone:       form.nextOfKinPhone || undefined,
-    massCasualty:         form.massCasualty,
-    massCasualtyCount:    form.massCasualtyCount ? parseInt(form.massCasualtyCount, 10) : undefined,
-    chiefComplaint:       form.chiefComplaint,
-    alertNature:          form.alertNature  || undefined,
-    alertNatureDetail:    form.alertNatureDetail || undefined,
-    watcherComments:      form.watcherComments || undefined,
-    preHospitalManagement: form.preHospitalManagement || undefined,
-    placeOfReferral:      form.placeOfReferral || undefined,
   });
 
   const endCaseMutation = useMutation({
@@ -308,10 +408,7 @@ export default function NewIncidentWizard() {
     },
   });
 
-  // ── Success screen ──────────────────────────────────────────────────────────
-
-  const ended = (location.state as any)?.ended;
-
+  // ── Success screen ─────────────────────────────────────────────────────────
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 gap-6 text-center">
@@ -319,10 +416,10 @@ export default function NewIncidentWizard() {
           <CheckCircle size={48} weight="fill" className={ended ? 'text-status-danger' : 'text-brand-green'} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-brand-teal">{ended ? 'Case Ended' : 'Alert Submitted'}</h2>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>{ended ? 'Case Ended' : 'Alert Submitted'}</h2>
           {submittedCase && (
-            <p className="text-sm text-slate-500 mt-2">
-              Case <span className="font-bold text-brand-teal">{submittedCase}</span>{' '}
+            <p className="text-sm mt-2" style={{ color: 'var(--muted)' }}>
+              Case <span className="font-bold text-brand-green">#{submittedCase}</span>{' '}
               {ended ? 'has been recorded and closed.' : 'is now in the dispatch queue.'}
             </p>
           )}
@@ -330,13 +427,13 @@ export default function NewIncidentWizard() {
         <div className="flex gap-3">
           <button
             onClick={() => { setForm(defaultForm); navigate('/watcher/new-incident', { replace: true, state: {} }); }}
-            className="px-5 py-2.5 border-2 border-slate-200 text-brand-teal text-sm font-bold rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2"
+            className="btn btn-ghost flex items-center gap-2"
           >
             <PaperPlaneRight size={16} /> New Alert
           </button>
           <button
             onClick={() => navigate('/watcher')}
-            className="px-5 py-2.5 bg-brand-teal text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all"
+            className="btn btn-primary"
           >
             My Alerts
           </button>
@@ -345,342 +442,405 @@ export default function NewIncidentWizard() {
     );
   }
 
-  // ── Main layout ─────────────────────────────────────────────────────────────
+  // ── Step titles ────────────────────────────────────────────────────────────
+  const stepTitle = step === 1
+    ? 'Patient & Alert Details'
+    : step === 2
+    ? 'Incident Location'
+    : 'Review & Submit';
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
 
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 shrink-0">
+      {/* ── Wizard header ── */}
+      <div
+        className="border-b px-6 py-3 flex items-center gap-4 shrink-0"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
         <div className="flex-1">
-          <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mb-0.5">New Incident</p>
-          <h1 className="text-lg font-bold text-brand-teal">Alert Intake</h1>
+          <p className="text-[9px] font-black uppercase tracking-widest mb-0.5" style={{ color: 'var(--muted)' }}>
+            New Incident · Step {step} of 3
+          </p>
+          <h1 className="text-base font-bold text-brand-green">{stepTitle}</h1>
         </div>
         <button
           onClick={() => navigate(-1)}
-          className="p-2 text-slate-400 hover:text-status-danger hover:bg-red-50 rounded-lg transition-all"
+          className="p-2 rounded-lg transition-all hover:bg-[var(--red-soft)] hover:text-status-danger"
+          style={{ color: 'var(--muted)' }}
         >
           <X size={20} weight="bold" />
         </button>
       </div>
 
-      {/* Two-column content */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 gap-4 p-4 lg:gap-5 lg:p-5 overflow-hidden">
+      {/* ── Step indicator ── */}
+      <WizardStepper current={step} />
 
-        {/* ── LEFT COLUMN: Alert + Location + Patient ─────────────────────── */}
-        <div className="overflow-y-auto space-y-4 pr-1">
+      {/* ── Step content ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-5">
 
-          {/* Step 1 — Alert */}
-          <FormSection title="Alert" icon={Phone} step="Step 1 · Intake">
-            <Field>
-              <Label required>Alert Date &amp; Time</Label>
-              <input
-                type="datetime-local"
-                className={inputCls}
-                value={form.alertAt}
-                onChange={e => set({ alertAt: e.target.value })}
-              />
-              <Hint>When was the alert received?</Hint>
-            </Field>
+        {/* ─────────────── STEP 1: Patient & Alert ─────────────── */}
+        {step === 1 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
 
-            <Field>
-              <Label required>Mode of Alert</Label>
-              <select className={selectCls} value={form.alertMode} onChange={e => set({ alertMode: e.target.value })}>
-                {ALERT_MODES.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
+            {/* Left column */}
+            <div className="space-y-4">
 
-            <Field>
-              <Label>Origin of Alert</Label>
-              <select className={selectCls} value={form.originOfAlert} onChange={e => set({ originOfAlert: e.target.value })}>
-                <option value="">Select origin...</option>
-                {ORIGIN_OPTIONS.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </Field>
+              <SectionCard title="Alert" icon={Phone}>
+                <Field>
+                  <Label required>Alert Date &amp; Time</Label>
+                  <input
+                    type="datetime-local"
+                    className={inputCls}
+                    value={form.alertAt}
+                    onChange={e => set({ alertAt: e.target.value })}
+                  />
+                  <Hint>When was the alert received?</Hint>
+                </Field>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field>
-                <Label>Notifier Name</Label>
-                <input type="text" placeholder="Full name" className={inputCls} value={form.notifierName} onChange={e => set({ notifierName: e.target.value })} />
-              </Field>
-              <Field>
-                <Label>Notifier Phone</Label>
-                <input type="tel" placeholder="07XXXXXXXX" className={inputCls} value={form.notifierPhone} onChange={e => set({ notifierPhone: e.target.value })} />
-              </Field>
-            </div>
-          </FormSection>
+                <Field>
+                  <Label required>Mode of Alert</Label>
+                  <select className={selectCls} value={form.alertMode} onChange={e => set({ alertMode: e.target.value })}>
+                    {ALERT_MODES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </Field>
 
-          {/* Step 2 — Location */}
-          <FormSection title="Location" icon={MapPin} step="Step 2 · Intake">
-            <Field>
-              <Label required>Location of Incident</Label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search, or click the map to pin…"
-                  className={`${inputCls} pr-10`}
-                  value={form.locationName}
-                  onChange={e => { set({ locationName: e.target.value }); if (!e.target.value) setSuggestions([]); }}
-                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  autoComplete="off"
-                />
-                {/* Spinner while reverse-geocoding a map click */}
-                {isReverseGeocoding && (
-                  <div className="absolute right-3 top-3 w-5 h-5 border-2 border-brand-teal border-t-transparent rounded-full animate-spin" />
+                <Field>
+                  <Label>Origin of Alert</Label>
+                  <select className={selectCls} value={form.originOfAlert} onChange={e => set({ originOfAlert: e.target.value })}>
+                    <option value="">Select origin...</option>
+                    {ORIGIN_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </Field>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <Label>Notifier Name</Label>
+                    <input type="text" placeholder="Full name" className={inputCls} value={form.notifierName} onChange={e => set({ notifierName: e.target.value })} />
+                  </Field>
+                  <Field>
+                    <Label>Notifier Phone</Label>
+                    <input type="tel" placeholder="07XXXXXXXX" className={inputCls} value={form.notifierPhone} onChange={e => set({ notifierPhone: e.target.value })} />
+                  </Field>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Patient" icon={User}>
+                <Field>
+                  <Label>Patient Name</Label>
+                  <input type="text" placeholder="Full name" className={inputCls} value={form.patientName} onChange={e => set({ patientName: e.target.value })} />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <Label>Age</Label>
+                    <input type="number" min="0" max="120" inputMode="numeric" placeholder="e.g. 34" className={inputCls} value={form.patientAge}
+                      onKeyDown={e => ['e','E','+','-','.'].includes(e.key) && e.preventDefault()}
+                      onChange={e => set({ patientAge: e.target.value.replace(/[^0-9]/g, '') })} />
+                  </Field>
+                  <Field>
+                    <Label>Sex</Label>
+                    <select className={selectCls} value={form.patientGender} onChange={e => set({ patientGender: e.target.value })}>
+                      <option value="">Select...</option>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <Label>Next of Kin</Label>
+                    <input type="text" placeholder="Full name" className={inputCls} value={form.nextOfKin} onChange={e => set({ nextOfKin: e.target.value })} />
+                  </Field>
+                  <Field>
+                    <Label>Next of Kin Phone</Label>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      pattern="[0-9+\-\s]*"
+                      placeholder="07XXXXXXXX"
+                      className={inputCls}
+                      value={form.nextOfKinPhone}
+                      onChange={e => { const v = e.target.value.replace(/[^0-9+\-\s]/g, ''); set({ nextOfKinPhone: v }); }}
+                    />
+                  </Field>
+                </div>
+
+                <label
+                  className="flex items-start gap-4 p-4 border rounded-xl cursor-pointer transition-all"
+                  style={{
+                    borderColor: form.massCasualty ? 'var(--red)' : 'var(--border)',
+                    background: form.massCasualty ? 'var(--red-soft)' : 'transparent',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 mt-0.5 accent-red-500 shrink-0"
+                    checked={form.massCasualty}
+                    onChange={e => set({ massCasualty: e.target.checked })}
+                  />
+                  <div>
+                    <p className="font-bold text-status-danger text-sm flex items-center gap-1.5">
+                      <WarningCircle size={16} weight="fill" /> Declare Mass Casualty Incident (MCI)
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Multiple victims requiring heavy response.</p>
+                  </div>
+                </label>
+
+                {form.massCasualty && (
+                  <Field>
+                    <Label>Approximate Number of Casualties</Label>
+                    <input type="number" min="2" inputMode="numeric" placeholder="e.g. 5" className={inputCls} value={form.massCasualtyCount}
+                      onKeyDown={e => ['e','E','+','-','.'].includes(e.key) && e.preventDefault()}
+                      onChange={e => set({ massCasualtyCount: e.target.value.replace(/[^0-9]/g, '') })} />
+                  </Field>
                 )}
-                {/* Autocomplete dropdown */}
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border-2 border-slate-200 rounded-xl shadow-xl overflow-hidden">
-                    {suggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-start gap-3 transition-colors"
-                        onMouseDown={() => selectSuggestion(s)}
-                      >
-                        <MapPin size={14} weight="fill" className="text-brand-teal mt-0.5 shrink-0" />
-                        <span className="text-slate-700 font-medium leading-snug">
-                          {s.display_name.split(',').slice(0, 3).join(',')}
-                        </span>
-                      </button>
-                    ))}
+              </SectionCard>
+            </div>
+
+            {/* Right column */}
+            <div className="space-y-4">
+              <SectionCard title="Incident Details" icon={FirstAid}>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <Label>Nature of Alert</Label>
+                    <CreatableCombobox
+                      options={natureList}
+                      value={form.alertNature}
+                      onChange={v => set({ alertNature: v, alertNatureDetail: '' })}
+                      onCreateOption={addNature}
+                      placeholder="Select or type new…"
+                    />
+                  </Field>
+                  <Field>
+                    <Label>Specify Nature</Label>
+                    <CreatableCombobox
+                      options={detailsForNature(form.alertNature)}
+                      value={form.alertNatureDetail}
+                      onChange={v => set({ alertNatureDetail: v })}
+                      onCreateOption={form.alertNature ? (detail) => addDetail(form.alertNature, detail) : undefined}
+                      placeholder={form.alertNature ? 'Select or type new…' : 'Pick nature first'}
+                      disabled={!form.alertNature}
+                    />
+                  </Field>
+                </div>
+
+                <Field>
+                  <Label required>Chief Complaint</Label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe the primary complaint / reason for call..."
+                    className={textareaCls}
+                    value={form.chiefComplaint}
+                    onChange={e => set({ chiefComplaint: e.target.value })}
+                  />
+                  <Hint>Be as specific as possible — this is what dispatchers see first.</Hint>
+                </Field>
+
+                <Field>
+                  <Label>Caller / Watcher Notes</Label>
+                  <textarea
+                    rows={3}
+                    placeholder="Any additional observations from the caller..."
+                    className={textareaCls}
+                    value={form.watcherComments}
+                    onChange={e => set({ watcherComments: e.target.value })}
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Pre-Hospital Management Given</Label>
+                  <textarea
+                    rows={3}
+                    placeholder="e.g. Tourniquet applied, IV access obtained..."
+                    className={textareaCls}
+                    value={form.preHospitalManagement}
+                    onChange={e => set({ preHospitalManagement: e.target.value })}
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Place of Referral</Label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kenyatta National Hospital"
+                    className={inputCls}
+                    value={form.placeOfReferral}
+                    onChange={e => set({ placeOfReferral: e.target.value })}
+                  />
+                </Field>
+              </SectionCard>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────────── STEP 2: Location ─────────────── */}
+        {step === 2 && (
+          <div className="max-w-3xl mx-auto space-y-4">
+            <SectionCard title="Incident Location" icon={MapPin}>
+              <Field>
+                <Label required>Location of Incident</Label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Type to search, or click the map to pin…"
+                    className={`${inputCls} pr-10`}
+                    value={form.locationName}
+                    onChange={e => { set({ locationName: e.target.value }); if (!e.target.value) setSuggestions([]); }}
+                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    autoComplete="off"
+                  />
+                  {isReverseGeocoding && (
+                    <div className="absolute right-3 top-3 w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div
+                      className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl shadow-xl overflow-hidden card"
+                    >
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="w-full text-left px-4 py-3 text-sm border-b border-[var(--border)] last:border-0 flex items-start gap-3 transition-colors hover:bg-[var(--surface-2)]"
+                          onMouseDown={() => selectSuggestion(s)}
+                        >
+                          <MapPin size={14} weight="fill" className="text-brand-green mt-0.5 shrink-0" />
+                          <span className="font-medium leading-snug" style={{ color: 'var(--ink)' }}>
+                            {s.display_name.split(',').slice(0, 3).join(',')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Hint>
+                  {isReverseGeocoding
+                    ? 'Getting address for pinned location…'
+                    : 'Type to search or click the map below to pin the scene'}
+                </Hint>
+              </Field>
+
+              {/* Map */}
+              <div className="card overflow-hidden">
+                <div
+                  className="px-3 py-2 border-b flex items-center gap-2"
+                  style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
+                >
+                  <MapPin size={12} weight="fill" className="text-brand-green shrink-0" />
+                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                    Click anywhere on the map to pin the scene — address fills automatically
+                  </span>
+                </div>
+                <Map
+                  center={[form.lat, form.lng]}
+                  zoom={14}
+                  markers={[{ id: 'scene', lat: form.lat, lng: form.lng, title: form.locationName || 'Scene', type: 'incident' }]}
+                  onLocationSelect={handleMapClick}
+                  layerType="street"
+                  className="h-80 w-full"
+                />
+                {form.locationName && !isReverseGeocoding && (
+                  <div
+                    className="px-4 py-2.5 border-t text-xs font-bold flex items-center gap-1.5 text-brand-green"
+                    style={{ background: 'var(--green-light)', borderColor: 'var(--border)' }}
+                  >
+                    <MapPin size={12} weight="fill" /> {form.locationName} · {form.lat.toFixed(4)}, {form.lng.toFixed(4)}
+                  </div>
+                )}
+                {isReverseGeocoding && (
+                  <div
+                    className="px-4 py-2.5 border-t text-xs flex items-center gap-2"
+                    style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+                  >
+                    <div className="w-3 h-3 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+                    Getting address…
                   </div>
                 )}
               </div>
-              <Hint>
-                {isReverseGeocoding
-                  ? 'Getting address for pinned location…'
-                  : 'Type to search or click the map below to pin the scene'}
-              </Hint>
-            </Field>
 
-            {/* Map — always visible; click anywhere to auto-fill the location */}
-            <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
-                <MapPin size={12} weight="fill" className="text-brand-teal shrink-0" />
-                <span className="text-xs font-medium text-slate-500">
-                  Click anywhere on the map to pin the scene — address fills automatically
-                </span>
-              </div>
-              <Map
-                center={[form.lat, form.lng]}
-                zoom={14}
-                markers={[{ id: 'scene', lat: form.lat, lng: form.lng, title: form.locationName || 'Scene', type: 'incident' }]}
-                onLocationSelect={handleMapClick}
-                layerType="street"
-                className="h-72 w-full"
-              />
-              {form.locationName && !isReverseGeocoding && (
-                <div className="px-4 py-2.5 bg-brand-green/5 border-t border-brand-green/20 text-xs text-brand-green font-bold flex items-center gap-1.5">
-                  <MapPin size={12} weight="fill" /> {form.locationName} · {form.lat.toFixed(4)}, {form.lng.toFixed(4)}
-                </div>
-              )}
-              {isReverseGeocoding && (
-                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-xs text-slate-400 flex items-center gap-2">
-                  <div className="w-3 h-3 border-2 border-brand-teal border-t-transparent rounded-full animate-spin" />
-                  Getting address…
-                </div>
-              )}
-            </div>
-
-            <Field>
-              <Label required>Sub-County</Label>
-              <select className={selectCls} value={form.subCounty} onChange={e => set({ subCounty: e.target.value })}>
-                <option value="">Select sub-county...</option>
-                {SUB_COUNTIES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </Field>
-          </FormSection>
-
-          {/* Step 3 — Patient */}
-          <FormSection title="Patient" icon={User} step="Step 3 · Intake">
-            <Field>
-              <Label>Patient Name</Label>
-              <input type="text" placeholder="Full name" className={inputCls} value={form.patientName} onChange={e => set({ patientName: e.target.value })} />
-            </Field>
-
-            <div className="grid grid-cols-2 gap-3">
               <Field>
-                <Label>Age</Label>
-                <input type="number" min="0" max="120" inputMode="numeric" placeholder="e.g. 34" className={inputCls} value={form.patientAge} onChange={e => set({ patientAge: e.target.value })} />
-              </Field>
-              <Field>
-                <Label>Sex</Label>
-                <select className={selectCls} value={form.patientGender} onChange={e => set({ patientGender: e.target.value })}>
-                  <option value="">Select...</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
+                <Label required>Sub-County</Label>
+                <select className={selectCls} value={form.subCounty} onChange={e => set({ subCounty: e.target.value })}>
+                  <option value="">Select sub-county...</option>
+                  {SUB_COUNTIES.map(s => <option key={s}>{s}</option>)}
                 </select>
               </Field>
+            </SectionCard>
+          </div>
+        )}
+
+        {/* ─────────────── STEP 3: Review & Submit ─────────────── */}
+        {step === 3 && (
+          <div className="max-w-4xl mx-auto space-y-4">
+
+            {/* Bento review grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ReviewCard title="Step 1 · Alert Info" onEdit={() => setStep(1)}>
+                <ReviewRow label="Alert Time" value={form.alertAt} />
+                <ReviewRow label="Mode"       value={form.alertMode} />
+                <ReviewRow label="Origin"     value={form.originOfAlert} />
+                <ReviewRow label="Notifier"   value={form.notifierName ? `${form.notifierName} · ${form.notifierPhone}` : undefined} />
+              </ReviewCard>
+
+              <ReviewCard title="Step 2 · Location" onEdit={() => setStep(2)}>
+                <ReviewRow label="Location"   value={form.locationName} />
+                <ReviewRow label="Sub-County" value={form.subCounty} />
+                <ReviewRow label="Coords"     value={form.lat ? `${form.lat.toFixed(4)}, ${form.lng.toFixed(4)}` : undefined} />
+              </ReviewCard>
+
+              <ReviewCard title="Step 1 · Patient" onEdit={() => setStep(1)}>
+                <ReviewRow label="Name"        value={form.patientName} />
+                <ReviewRow label="Age / Sex"   value={[form.patientAge, form.patientGender].filter(Boolean).join(' · ') || undefined} />
+                <ReviewRow label="Next of Kin" value={form.nextOfKin ? `${form.nextOfKin} · ${form.nextOfKinPhone}` : undefined} />
+                <ReviewRow label="MCI"         value={form.massCasualty ? `Yes (${form.massCasualtyCount || '?'} casualties)` : undefined} />
+              </ReviewCard>
+
+              <ReviewCard title="Step 1 · Incident Details" onEdit={() => setStep(1)}>
+                <ReviewRow label="Nature"    value={[form.alertNature, form.alertNatureDetail].filter(Boolean).join(' → ') || undefined} />
+                <ReviewRow label="Complaint" value={form.chiefComplaint} />
+                <ReviewRow label="Pre-hosp." value={form.preHospitalManagement} />
+                <ReviewRow label="Referral"  value={form.placeOfReferral} />
+              </ReviewCard>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field>
-                <Label>Next of Kin</Label>
-                <input type="text" placeholder="Full name" className={inputCls} value={form.nextOfKin} onChange={e => set({ nextOfKin: e.target.value })} />
-              </Field>
-              <Field>
-                <Label>Next of Kin Phone</Label>
-                <input type="tel" inputMode="tel" pattern="[0-9+\-\s]*" placeholder="07XXXXXXXX" className={inputCls} value={form.nextOfKinPhone} onChange={e => { const v = e.target.value.replace(/[^0-9+\-\s]/g, ''); set({ nextOfKinPhone: v }); }} />
-              </Field>
-            </div>
-
-            <label className={`flex items-start gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-              form.massCasualty ? 'border-status-danger bg-status-danger/5' : 'border-slate-200 hover:border-status-danger/50'
-            }`}>
-              <input
-                type="checkbox"
-                className="w-5 h-5 mt-0.5 accent-red-500 shrink-0"
-                checked={form.massCasualty}
-                onChange={e => set({ massCasualty: e.target.checked })}
-              />
-              <div>
-                <p className="font-bold text-status-danger text-sm flex items-center gap-1.5">
-                  <WarningCircle size={16} weight="fill" /> Declare Mass Casualty Incident (MCI)
+            {/* Chief complaint highlight */}
+            {form.chiefComplaint && (
+              <div className="card card-pad">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
+                  Chief Complaint
                 </p>
-                <p className="text-xs text-slate-400 mt-1">Multiple victims requiring heavy response.</p>
+                <div className="border-l-4 border-brand-green pl-4 py-1">
+                  <p className="text-sm font-semibold text-brand-green">{form.chiefComplaint}</p>
+                </div>
               </div>
-            </label>
-
-            {form.massCasualty && (
-              <Field>
-                <Label>Approximate Number of Casualties</Label>
-                <input type="number" min="2" placeholder="e.g. 5" className={inputCls} value={form.massCasualtyCount} onChange={e => set({ massCasualtyCount: e.target.value })} />
-              </Field>
             )}
-          </FormSection>
-        </div>
-
-        {/* ── RIGHT COLUMN: Incident Details + Live Review ─────────────────── */}
-        <div className="overflow-y-auto space-y-4 pl-1">
-
-          {/* Step 4 — Incident Details */}
-          <FormSection title="Incident Details" icon={FirstAid} step="Step 4 · Details">
-            <div className="grid grid-cols-2 gap-3">
-              <Field>
-                <Label>Nature of Alert</Label>
-                <CreatableCombobox
-                  options={natureList}
-                  value={form.alertNature}
-                  onChange={v => set({ alertNature: v, alertNatureDetail: '' })}
-                  onCreateOption={addNature}
-                  placeholder="Select or type new…"
-                />
-              </Field>
-              <Field>
-                <Label>Specify Nature</Label>
-                <CreatableCombobox
-                  options={detailsForNature(form.alertNature)}
-                  value={form.alertNatureDetail}
-                  onChange={v => set({ alertNatureDetail: v })}
-                  onCreateOption={form.alertNature ? (detail) => addDetail(form.alertNature, detail) : undefined}
-                  placeholder={form.alertNature ? 'Select or type new…' : 'Pick nature first'}
-                  disabled={!form.alertNature}
-                />
-              </Field>
-            </div>
-
-            <Field>
-              <Label required>Chief Complaint</Label>
-              <textarea
-                rows={3}
-                placeholder="Describe the primary complaint / reason for call..."
-                className={textareaCls}
-                value={form.chiefComplaint}
-                onChange={e => set({ chiefComplaint: e.target.value })}
-              />
-              <Hint>Be as specific as possible — this is what dispatchers see first.</Hint>
-            </Field>
-
-            <Field>
-              <Label>Caller / Watcher Notes</Label>
-              <textarea
-                rows={3}
-                placeholder="Any additional observations from the caller..."
-                className={textareaCls}
-                value={form.watcherComments}
-                onChange={e => set({ watcherComments: e.target.value })}
-              />
-            </Field>
-
-            <Field>
-              <Label>Pre-Hospital Management Given</Label>
-              <textarea
-                rows={3}
-                placeholder="e.g. Tourniquet applied, IV access obtained..."
-                className={textareaCls}
-                value={form.preHospitalManagement}
-                onChange={e => set({ preHospitalManagement: e.target.value })}
-              />
-            </Field>
-
-            <Field>
-              <Label>Place of Referral</Label>
-              <input
-                type="text"
-                placeholder="e.g. Kenyatta National Hospital"
-                className={inputCls}
-                value={form.placeOfReferral}
-                onChange={e => set({ placeOfReferral: e.target.value })}
-              />
-            </Field>
-          </FormSection>
-
-          {/* Step 5 — Live Review */}
-          <FormSection title="Review" icon={ListChecks} step="Step 5 · Summary">
-            <p className="text-xs text-slate-400 -mt-1">Live summary — updates as you fill the form.</p>
-
-            {[
-              { heading: 'Alert Details', rows: [
-                { label: 'Alert Time', value: form.alertAt },
-                { label: 'Mode',       value: form.alertMode },
-                { label: 'Origin',     value: form.originOfAlert },
-                { label: 'Notifier',   value: form.notifierName ? `${form.notifierName} · ${form.notifierPhone}` : undefined },
-              ]},
-              { heading: 'Location', rows: [
-                { label: 'Location',   value: form.locationName },
-                { label: 'Sub-County', value: form.subCounty },
-                { label: 'Coords',     value: form.lat ? `${form.lat.toFixed(4)}, ${form.lng.toFixed(4)}` : undefined },
-              ]},
-              { heading: 'Patient', rows: [
-                { label: 'Name',       value: form.patientName },
-                { label: 'Age / Sex',  value: [form.patientAge, form.patientGender].filter(Boolean).join(' · ') || undefined },
-                { label: 'Next of Kin',value: form.nextOfKin ? `${form.nextOfKin} · ${form.nextOfKinPhone}` : undefined },
-                { label: 'MCI',        value: form.massCasualty ? `Yes (${form.massCasualtyCount || '?'} casualties)` : undefined },
-              ]},
-              { heading: 'Incident', rows: [
-                { label: 'Nature',     value: [form.alertNature, form.alertNatureDetail].filter(Boolean).join(' → ') || undefined },
-                { label: 'Complaint',  value: form.chiefComplaint },
-                { label: 'Pre-hosp.',  value: form.preHospitalManagement },
-                { label: 'Referral',   value: form.placeOfReferral },
-              ]},
-            ].map(section => (
-              <div key={section.heading} className="border-2 border-slate-100 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-4 py-2 border-b border-slate-100">
-                  <p className="text-xs font-black text-brand-teal uppercase tracking-widest">{section.heading}</p>
-                </div>
-                <div className="px-4 py-1">
-                  {section.rows.map(row =>
-                    row.value ? <ReviewRow key={row.label} label={row.label} value={row.value} /> : null
-                  )}
-                </div>
-              </div>
-            ))}
 
             {mutation.isError && (
               <div className="bg-status-danger/10 border border-status-danger/30 text-status-danger px-4 py-3 rounded-xl text-sm font-semibold">
                 Submission failed — check your connection and try again.
               </div>
             )}
-          </FormSection>
-        </div>
+
+            {/* Confirmation notice */}
+            <div className="card card-pad flex items-start gap-3">
+              <ListChecks size={18} className="text-[var(--muted)] mt-0.5 shrink-0" />
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                By clicking <strong style={{ color: 'var(--ink)' }}>Submit Alert</strong>, you confirm all critical details are accurate.
+                This action will trigger immediate dispatch routing.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* End Case reason panel — slides up above footer when active */}
-      {showEndReason && (
-        <div className="bg-white border-t-2 border-status-danger/30 px-6 py-4 shrink-0">
+      {/* ── End Case reason panel (Step 3 only) ── */}
+      {showEndReason && step === 3 && (
+        <div
+          className="border-t-2 border-status-danger/30 px-6 py-4 shrink-0"
+          style={{ background: 'var(--surface)' }}
+        >
           <div className="flex items-start gap-3 max-w-2xl mx-auto">
             <div className="flex-1">
               <p className="text-xs font-bold text-status-danger uppercase tracking-widest mb-2">
@@ -690,11 +850,12 @@ export default function NewIncidentWizard() {
                 autoFocus
                 rows={2}
                 placeholder="e.g. Caller confirmed false alarm, no response required…"
-                className="w-full px-4 py-2.5 border-2 border-status-danger/30 rounded-xl text-sm font-medium focus:ring-2 focus:ring-status-danger focus:border-status-danger outline-none resize-none text-slate-700 placeholder:text-slate-300 bg-white transition-all"
+                className={`${textareaCls} border-status-danger/40 focus:ring-status-danger focus:border-status-danger`}
                 value={endReason}
                 onChange={e => setEndReason(e.target.value)}
               />
-              <p className={`text-xs mt-1 ${endReason.trim().length < 10 && endReason.length > 0 ? 'text-status-danger' : 'text-slate-400'}`}>
+              <p className={`text-xs mt-1 ${endReason.trim().length < 10 && endReason.length > 0 ? 'text-status-danger' : ''}`}
+                style={endReason.trim().length >= 10 || endReason.length === 0 ? { color: 'var(--muted)' } : {}}>
                 {endReason.trim().length} / 10 characters minimum
               </p>
             </div>
@@ -702,7 +863,7 @@ export default function NewIncidentWizard() {
               <button
                 type="button"
                 onClick={() => { setShowEndReason(false); setEndReason(''); }}
-                className="px-4 py-2 text-xs font-bold text-slate-500 border-2 border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                className="btn btn-ghost btn-sm"
               >
                 Cancel
               </button>
@@ -710,7 +871,7 @@ export default function NewIncidentWizard() {
                 type="button"
                 onClick={() => endCaseMutation.mutate()}
                 disabled={endReason.trim().length < 10 || endCaseMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 bg-status-danger text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn btn-danger btn-sm flex items-center gap-1.5"
               >
                 <XCircle size={14} weight="fill" />
                 {endCaseMutation.isPending ? 'Ending…' : 'Confirm'}
@@ -720,40 +881,87 @@ export default function NewIncidentWizard() {
         </div>
       )}
 
-      {/* Sticky footer */}
-      <div className="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between shrink-0">
+      {/* ── Sticky footer ── */}
+      <div
+        className="border-t px-6 py-3 flex items-center justify-between shrink-0"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        {/* Back / Cancel */}
         <button
           type="button"
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-5 py-2.5 border-2 border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-all"
+          onClick={() => step === 1 ? navigate(-1) : setStep((s) => (s - 1) as 1 | 2 | 3)}
+          className="btn btn-ghost"
         >
-          Cancel
+          {step === 1 ? (
+            'Cancel'
+          ) : (
+            <><ArrowLeft size={16} weight="bold" /> Previous</>
+          )}
         </button>
 
         <div className="flex items-center gap-3">
-          {!canSubmit && missingFields.length > 0 && (
-            <p className="text-xs text-slate-400 max-w-xs text-right">
-              Required: {missingFields.join(', ')}
-            </p>
+
+          {/* Step 1 → 2 */}
+          {step === 1 && (
+            <>
+              {!canGoToStep2 && step1Missing.length > 0 && (
+                <p className="text-xs max-w-xs text-right hidden sm:block" style={{ color: 'var(--muted)' }}>
+                  Required: {step1Missing.join(', ')}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                disabled={!canGoToStep2}
+                className="btn btn-primary"
+              >
+                Continue <ArrowRight size={16} weight="bold" />
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            onClick={() => { setShowEndReason(v => !v); setEndReason(''); }}
-            disabled={!canSubmit}
-            className="flex items-center gap-2 px-5 py-2.5 border-2 border-status-danger/50 text-status-danger text-sm font-bold rounded-xl hover:bg-status-danger hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <XCircle size={16} weight="fill" />
-            End Case
-          </button>
-          <button
-            type="button"
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || !canSubmit}
-            className="flex items-center gap-2 px-8 py-2.5 bg-brand-green text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ClipboardText size={18} weight="bold" />
-            {mutation.isPending ? 'Submitting...' : 'Submit Alert'}
-          </button>
+
+          {/* Step 2 → 3 */}
+          {step === 2 && (
+            <>
+              {!canGoToStep3 && step2Missing.length > 0 && (
+                <p className="text-xs max-w-xs text-right hidden sm:block" style={{ color: 'var(--muted)' }}>
+                  Required: {step2Missing.join(', ')}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                disabled={!canGoToStep3}
+                className="btn btn-primary"
+              >
+                Review <ArrowRight size={16} weight="bold" />
+              </button>
+            </>
+          )}
+
+          {/* Step 3 actions */}
+          {step === 3 && (
+            <>
+              <button
+                type="button"
+                onClick={() => { setShowEndReason(v => !v); setEndReason(''); }}
+                disabled={!canSubmit}
+                className="btn btn-ghost flex items-center gap-2 border-status-danger/50 text-status-danger hover:bg-[var(--red-soft)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <XCircle size={16} weight="fill" />
+                End Case
+              </button>
+              <button
+                type="button"
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending || !canSubmit}
+                className="btn btn-primary"
+              >
+                <ClipboardText size={18} weight="bold" />
+                {mutation.isPending ? 'Submitting...' : 'Submit Alert'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

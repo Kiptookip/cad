@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Plus, MagnifyingGlass, DotsThreeVertical, Hospital,
   PencilSimple, Check, X as XIcon, MapPin, MapTrifold,
+  Spinner,
 } from '@phosphor-icons/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -12,10 +13,9 @@ import Map from '../../components/shared/Map';
 const FACILITY_TYPES = ['Hospital', 'Health Centre', 'Clinic', 'Dispensary', 'Nursing Home', 'Maternity'];
 const KEPH_LEVELS = [1, 2, 3, 4, 5, 6];
 const NAIROBI_SUB_COUNTIES = [
-  'Westlands', 'Dagoretti North', 'Dagoretti South', 'Langata', 'Kibra',
-  'Roysambu', 'Kasarani', 'Ruaraka', 'Embakasi South', 'Embakasi North',
-  'Embakasi Central', 'Embakasi East', 'Embakasi West', 'Makadara',
-  'Kamukunji', 'Starehe', 'Mathare',
+  'Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East',
+  'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani',
+  "Kibra", "Lang'ata", 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands',
 ];
 
 // Nairobi centre
@@ -50,6 +50,12 @@ export default function FacilitiesPage() {
   const [form, setForm] = useState(emptyForm);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { addNotification } = useNotificationStore();
   const queryClient = useQueryClient();
 
@@ -105,9 +111,49 @@ export default function FacilitiesPage() {
     f.subCounty.toLowerCase().includes(search.toLowerCase())
   );
 
+  function handleLocationSearch(q: string) {
+    setLocationQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.length < 3) { setSuggestions([]); return; }
+    setIsSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Nairobi, Kenya')}&limit=5&addressdetails=1`
+        );
+        const data = await res.json();
+        setSuggestions(data ?? []);
+        setShowSuggestions(true);
+      } catch {} finally { setIsSearching(false); }
+    }, 400);
+  }
+
+  function selectSuggestion(s: any) {
+    setPin({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
+    setLocationQuery(s.display_name.split(',').slice(0, 2).join(',').trim());
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+
+  async function handleMapClick(lat: number, lng: number) {
+    setPin({ lat, lng });
+    setIsReverseGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      const data = await res.json();
+      if (data?.display_name) {
+        setLocationQuery(data.display_name.split(',').slice(0, 2).join(',').trim());
+      }
+    } catch {} finally { setIsReverseGeocoding(false); }
+  }
+
   function openAdd() {
     setForm(emptyForm);
     setPin(null);
+    setLocationQuery('');
+    setSuggestions([]);
     setShowModal(true);
   }
 
@@ -395,25 +441,67 @@ export default function FacilitiesPage() {
               <div>
                 <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
                   <MapTrifold size={13} />
-                  Location — click the map to pin *
+                  Location *
                 </label>
-                <div className="rounded-xl overflow-hidden border" style={{ height: 260, borderColor: 'var(--border)' }}>
+
+                {/* Search box */}
+                <div className="relative mb-2">
+                  <div className="flex items-center border rounded-xl px-3 h-11 gap-2" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                    {isSearching || isReverseGeocoding
+                      ? <Spinner size={15} className="animate-spin flex-shrink-0" style={{ color: 'var(--muted-2)' }} />
+                      : <MagnifyingGlass size={15} className="flex-shrink-0" style={{ color: 'var(--muted-2)' }} />}
+                    <input
+                      className="flex-1 text-sm font-medium bg-transparent outline-none"
+                      style={{ color: 'var(--ink)' }}
+                      placeholder="Search place or address…"
+                      value={locationQuery}
+                      onChange={e => handleLocationSearch(e.target.value)}
+                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    />
+                    {locationQuery && (
+                      <button type="button" onClick={() => { setLocationQuery(''); setSuggestions([]); }} style={{ color: 'var(--muted-2)' }}>
+                        <XIcon size={13} weight="bold" />
+                      </button>
+                    )}
+                  </div>
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl shadow-xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseDown={() => selectSuggestion(s)}
+                          className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+                          style={{ color: 'var(--ink)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span className="font-semibold">{s.display_name.split(',').slice(0, 2).join(',')}</span>
+                          <span className="text-xs ml-1" style={{ color: 'var(--muted-2)' }}>{s.display_name.split(',').slice(2, 4).join(',')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Map */}
+                <div className="rounded-xl overflow-hidden border" style={{ height: 240, borderColor: 'var(--border)' }}>
                   <Map
                     center={pin ? [pin.lat, pin.lng] : NAIROBI}
-                    zoom={13}
+                    zoom={pin ? 15 : 13}
                     markers={pin ? [{ id: 'pin', lat: pin.lat, lng: pin.lng, title: form.name || 'Facility', type: 'facility' }] : []}
-                    onLocationSelect={(lat, lng) => setPin({ lat, lng })}
+                    onLocationSelect={handleMapClick}
                     layerType="light"
                     className="h-full w-full"
                   />
                 </div>
                 {pin ? (
                   <p className="mt-1.5 text-xs font-mono font-semibold" style={{ color: 'var(--muted)' }}>
-                    Pinned: {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
+                    {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
                   </p>
                 ) : (
-                  <p className="mt-1.5 text-xs font-semibold" style={{ color: 'var(--muted-2)' }}>
-                    No location selected yet — click anywhere on the map
+                  <p className="mt-1.5 text-xs" style={{ color: 'var(--muted-2)' }}>
+                    Search above or click the map to pin the location
                   </p>
                 )}
               </div>
