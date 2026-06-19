@@ -717,33 +717,19 @@ export default function IncidentDetailPage() {
               {selectedVehicleId && (() => {
                 const sv = (nearestVehicles || []).find(v => v.id === selectedVehicleId);
                 if (!sv) return null;
-                const hasCrew = sv.currentDriver && sv.currentEmt;
+                const hasDriver = !!sv.currentDriver;
                 return (
-                  <div className={`rounded-lg p-4 border text-sm ${hasCrew ? 'bg-brand-green/5 border-brand-green/20' : 'bg-status-warning/5 border-status-warning/30'}`}>
+                  <div className={`rounded-lg p-4 border text-sm ${hasDriver ? 'bg-brand-green/5 border-brand-green/20' : 'bg-status-warning/5 border-status-warning/30'}`}>
                     <p className="text-xs font-black uppercase tracking-widest mb-3 text-slate-400">Crew on board</p>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400">Driver</span>
-                        <span className={`text-xs font-semibold ${sv.currentDriver ? 'text-brand-teal' : 'text-status-danger'}`}>
-                          {sv.currentDriver?.name ?? 'Not checked in'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400">EMT</span>
-                        <span className={`text-xs font-semibold ${sv.currentEmt ? 'text-brand-teal' : 'text-status-danger'}`}>
-                          {sv.currentEmt?.name ?? 'Not checked in'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400">Nurse</span>
-                        <span className="text-xs font-semibold text-slate-400">
-                          {sv.currentNurse?.name ?? '—'}
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400">Driver</span>
+                      <span className={`text-xs font-semibold ${hasDriver ? 'text-brand-teal' : 'text-status-danger'}`}>
+                        {sv.currentDriver?.name ?? 'Not checked in'}
+                      </span>
                     </div>
-                    {!hasCrew && (
+                    {!hasDriver && (
                       <p className="text-xs text-status-warning font-medium mt-3">
-                        Driver and EMT must be checked in via the mobile app before dispatching.
+                        A driver must be checked in via the mobile app before dispatching.
                       </p>
                     )}
                   </div>
@@ -764,7 +750,6 @@ export default function IncidentDetailPage() {
                 disabled={
                   !selectedVehicleId ||
                   !(nearestVehicles || []).find(v => v.id === selectedVehicleId)?.currentDriver ||
-                  !(nearestVehicles || []).find(v => v.id === selectedVehicleId)?.currentEmt ||
                   dispatchMutation.isPending ||
                   step >= 3
                 }
