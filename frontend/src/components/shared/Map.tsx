@@ -33,16 +33,14 @@ const incidentIcon = new L.Icon({
 // ── Vehicle marker system ─────────────────────────────────────────────────────
 
 const STATUS_PALETTE: Record<VehicleTrackingStatus, { bg: string; light: string; ring: string }> = {
-  moving:      { bg: '#15803d', light: '#22c55e', ring: 'rgba(34,197,94,0.18)' },
-  stopped:     { bg: '#b45309', light: '#f59e0b', ring: 'rgba(245,158,11,0.16)' },
-  busy:        { bg: '#1d4ed8', light: '#3b82f6', ring: 'rgba(59,130,246,0.20)' },
-  maintenance: { bg: '#b91c1c', light: '#ef4444', ring: 'rgba(239,68,68,0.16)' },
-  offline:     { bg: '#374151', light: '#6b7280', ring: 'rgba(107,114,128,0.12)' },
+  ready:       { bg: '#15803d', light: '#22c55e', ring: 'rgba(34,197,94,0.18)' },
+  'no-driver': { bg: '#a16207', light: '#eab308', ring: 'rgba(234,179,8,0.18)' },
+  engaged:     { bg: '#b91c1c', light: '#ef4444', ring: 'rgba(239,68,68,0.16)' },
+  unavailable: { bg: '#374151', light: '#6b7280', ring: 'rgba(107,114,128,0.12)' },
 };
 
 const STATUS_LABEL: Record<VehicleTrackingStatus, string> = {
-  moving: 'MOVING', stopped: 'STOPPED', busy: 'EN ROUTE',
-  maintenance: 'MAINTENANCE', offline: 'OFFLINE',
+  ready: 'READY', 'no-driver': 'NO DRIVER', engaged: 'ENGAGED', unavailable: 'UNAVAILABLE',
 };
 
 function secsAgo(ts: string): string {
@@ -54,7 +52,7 @@ function secsAgo(ts: string): string {
 
 function createVehicleIcon(heading: number, status: VehicleTrackingStatus, speed: number): L.DivIcon {
   const p = STATUS_PALETTE[status];
-  const isMoving = status === 'moving';
+  const isMoving = status === 'ready';
   const pulse = isMoving
     ? `<circle cx="22" cy="22" r="15" fill="none" stroke="${p.light}" stroke-width="2">
          <animate attributeName="r" values="14;20;14" dur="2s" repeatCount="indefinite"/>
@@ -147,11 +145,10 @@ function LiveBadge({ vehicleCount, incidentCount, lastUpdatedAt }: {
 // ── Overlay: Legend ───────────────────────────────────────────────────────────
 
 const LEGEND_ITEMS = [
-  { color: '#22c55e', label: 'Moving' },
-  { color: '#f59e0b', label: 'Stopped' },
-  { color: '#3b82f6', label: 'En Route' },
-  { color: '#ef4444', label: 'Maintenance' },
-  { color: '#6b7280', label: 'Offline' },
+  { color: '#22c55e', label: 'Ready' },
+  { color: '#eab308', label: 'No Driver' },
+  { color: '#ef4444', label: 'Engaged' },
+  { color: '#6b7280', label: 'Unavailable' },
 ];
 
 function MapLegend({ hasIncidents }: { hasIncidents: boolean }) {

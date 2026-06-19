@@ -49,11 +49,10 @@ function scoreIncidents(incidents: Incident[], vLat: number, vLng: number): Scor
 
 // ── Status palette matching Map.tsx ───────────────────────────────────────────
 const STATUS_STYLE = {
-  moving:      'bg-brand-green/20 text-brand-green',
-  stopped:     'bg-amber-500/20 text-amber-400',
-  busy:        'bg-blue-500/20 text-blue-400',
-  maintenance: 'bg-status-danger/20 text-status-danger',
-  offline:     'bg-slate-500/20 text-slate-400',
+  ready:       'bg-brand-green/20 text-brand-green',
+  'no-driver': 'bg-amber-500/20 text-amber-400',
+  engaged:     'bg-status-danger/20 text-status-danger',
+  unavailable: 'bg-slate-500/20 text-slate-400',
 } as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────

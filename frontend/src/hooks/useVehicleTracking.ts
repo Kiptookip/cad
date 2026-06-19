@@ -18,14 +18,13 @@ export interface LiveVehicle {
   isActive: boolean;
 }
 
-export type VehicleTrackingStatus = 'moving' | 'stopped' | 'busy' | 'maintenance' | 'offline';
+export type VehicleTrackingStatus = 'ready' | 'no-driver' | 'engaged' | 'unavailable';
 
 export function getVehicleTrackingStatus(v: LiveVehicle): VehicleTrackingStatus {
-  if (v.dbStatus === 'MAINTENANCE') return 'maintenance';
-  if (v.dbStatus === 'BUSY') return 'busy';
-  if (!v.isActive || !v.ignition) return 'offline';
-  if (v.speed > 2) return 'moving';
-  return 'stopped';
+  if (!v.isActive || v.dbStatus === 'MAINTENANCE') return 'unavailable';
+  if (v.dbStatus === 'BUSY') return 'engaged';
+  if (v.ignition) return 'ready';   // READY + ignition on = driver present
+  return 'no-driver';               // READY + ignition off = no driver
 }
 
 export function useVehicleTracking() {

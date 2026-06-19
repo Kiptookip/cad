@@ -13,22 +13,20 @@ import { useVehicleTracking, getVehicleTrackingStatus, LiveVehicle } from '../..
 import { useNotificationStore } from '../../stores/notificationStore';
 import VehicleDispatchPanel from '../../components/shared/VehicleDispatchPanel';
 
-type StatusFilter = 'ALL' | 'moving' | 'stopped' | 'busy' | 'maintenance' | 'offline';
+type StatusFilter = 'ALL' | 'ready' | 'no-driver' | 'engaged' | 'unavailable';
 
 const S_PILL: Record<string, string> = {
-  moving: 'pill-green',
-  stopped: 'pill-blue',
-  busy: 'pill-amber',
-  maintenance: 'pill-gray',
-  offline: 'pill-red',
+  ready:       'pill-green',
+  'no-driver': 'pill-amber',
+  engaged:     'pill-red',
+  unavailable: 'pill-gray',
 };
 
 const S_LABEL: Record<string, string> = {
-  moving: 'Moving',
-  stopped: 'Standby',
-  busy: 'Dispatched',
-  maintenance: 'Maintenance',
-  offline: 'Offline',
+  ready:       'Ready',
+  'no-driver': 'No Driver',
+  engaged:     'Engaged',
+  unavailable: 'Unavailable',
 };
 
 export default function FleetPage() {
@@ -52,16 +50,11 @@ export default function FleetPage() {
   });
 
   const total = vehicles.length;
-  const movingCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'moving').length;
-  const busyCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'busy').length
+  const readyCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'ready').length;
+  const engagedCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'engaged').length
     || vehicles.filter((v) => v.status === 'BUSY').length;
-  const standbyCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'stopped').length;
-  const offlineCount = vehicles.filter(
-    (v) => !v.isActive || getVehicleTrackingStatus(
-      liveVehicles.find((lv) => lv.registration === v.registrationNumber) ??
-      ({ dbStatus: 'READY', ignition: false, speed: 0, isActive: v.isActive } as any)
-    ) === 'offline'
-  ).length;
+  const noDriverCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'no-driver').length;
+  const unavailableCount = liveVehicles.filter((v) => getVehicleTrackingStatus(v) === 'unavailable').length;
 
   const filtered = vehicles.filter((v) => {
     const q = search.toLowerCase();
@@ -71,7 +64,7 @@ export default function FleetPage() {
     const live = liveVehicles.find((lv) => lv.registration === v.registrationNumber);
     const s = live
       ? getVehicleTrackingStatus(live)
-      : v.status === 'MAINTENANCE' ? 'maintenance' : v.isActive ? 'stopped' : 'offline';
+      : v.status === 'MAINTENANCE' ? 'unavailable' : v.isActive ? 'no-driver' : 'unavailable';
     return s === statusFilter;
   });
 
@@ -119,10 +112,10 @@ export default function FleetPage() {
         {/* Stat grid */}
         <div className="stat-grid" style={{ marginBottom: 16 }}>
           {[
-            { label: 'Total Fleet', value: total, note: `${liveVehicles.length} with GPS`, pill: 'pill-gray' },
-            { label: 'Moving', value: movingCount, note: 'Currently in motion', pill: 'pill-green' },
-            { label: 'Standby', value: standbyCount, note: 'Ready for dispatch', pill: 'pill-blue' },
-            { label: 'Dispatched', value: busyCount, note: 'On active mission', pill: 'pill-amber' },
+            { label: 'Total Fleet',  value: total,            note: `${liveVehicles.length} with GPS` },
+            { label: 'Ready',        value: readyCount,       note: 'Has driver, available' },
+            { label: 'Engaged',      value: engagedCount,     note: 'On active mission' },
+            { label: 'Unavailable',  value: unavailableCount, note: 'Maintenance / offline' },
           ].map((card) => (
             <div className="stat" key={card.label}>
               <div className="stat-label">{card.label}</div>
@@ -153,11 +146,10 @@ export default function FleetPage() {
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               >
                 <option value="ALL">All Status</option>
-                <option value="moving">Moving</option>
-                <option value="stopped">Standby</option>
-                <option value="busy">Dispatched</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="offline">Offline</option>
+                <option value="ready">Ready</option>
+                <option value="no-driver">No Driver</option>
+                <option value="engaged">Engaged</option>
+                <option value="unavailable">Unavailable</option>
               </select>
               <button className="icon-btn" onClick={exportCSV} title="Download CSV">
                 <Download size={16} />
@@ -187,7 +179,7 @@ export default function FleetPage() {
                   const live = liveVehicles.find((lv) => lv.registration === v.registrationNumber);
                   const s = live
                     ? getVehicleTrackingStatus(live)
-                    : v.status === 'MAINTENANCE' ? 'maintenance' : v.isActive ? 'stopped' : 'offline';
+                    : v.status === 'MAINTENANCE' ? 'unavailable' : v.isActive ? 'no-driver' : 'unavailable';
                   const lat = live?.lat ?? v.lastLat;
                   const lng = live?.lng ?? v.lastLng;
                   const ts = live?.timestamp ?? v.lastLocationAt;
@@ -202,7 +194,7 @@ export default function FleetPage() {
                             <NavigationArrow
                               size={16}
                               weight="fill"
-                              color={s === 'moving' ? 'var(--green)' : s === 'busy' ? 'var(--amber)' : s === 'offline' ? 'var(--muted-2)' : 'var(--muted)'}
+                              color={s === 'ready' ? 'var(--green)' : s === 'engaged' ? 'var(--red)' : s === 'no-driver' ? 'var(--amber)' : 'var(--muted-2)'}
                               style={{ transform: live?.heading ? `rotate(${live.heading}deg)` : undefined }}
                             />
                           </div>
@@ -266,8 +258,8 @@ export default function FleetPage() {
             <div className="bars" style={{ height: 120 }}>
               {liveVehicles.length > 0 ? liveVehicles.map((v) => {
                 const s = getVehicleTrackingStatus(v);
-                const h = s === 'moving' ? Math.max(40, Math.min(95, 40 + (v.speed / 120) * 55)) : s === 'busy' ? 65 : s === 'stopped' ? 35 : 12;
-                const bg = s === 'moving' ? 'var(--green)' : s === 'busy' ? 'var(--amber)' : s === 'stopped' ? 'var(--blue)' : 'var(--muted-2)';
+                const h = s === 'ready' ? Math.max(40, Math.min(95, 40 + (v.speed / 120) * 55)) : s === 'engaged' ? 65 : s === 'no-driver' ? 35 : 12;
+                const bg = s === 'ready' ? 'var(--green)' : s === 'engaged' ? 'var(--red)' : s === 'no-driver' ? 'var(--amber)' : 'var(--muted-2)';
                 return (
                   <div key={v.vehicleId} className="bar" title={`${v.registration} · ${S_LABEL[s] ?? s}`}>
                     <span style={{ background: bg, height: `${h}%`, width: '100%', display: 'block', borderRadius: '5px 5px 0 0', position: 'absolute', bottom: 0 }} />
@@ -282,10 +274,10 @@ export default function FleetPage() {
             <div className="divider" style={{ margin: '12px 0' }} />
             <div className="row" style={{ gap: 24 }}>
               {[
-                { label: 'Moving', value: movingCount, color: 'var(--green)' },
-                { label: 'Dispatched', value: busyCount, color: 'var(--amber)' },
-                { label: 'Standby', value: standbyCount, color: 'var(--blue)' },
-                { label: 'Offline', value: offlineCount, color: 'var(--red)' },
+                { label: 'Ready',       value: readyCount,       color: 'var(--green)' },
+                { label: 'Engaged',     value: engagedCount,     color: 'var(--red)' },
+                { label: 'No Driver',   value: noDriverCount,    color: 'var(--amber)' },
+                { label: 'Unavailable', value: unavailableCount, color: 'var(--muted-2)' },
               ].map((d) => (
                 <div key={d.label}>
                   <div className="muted" style={{ fontSize: 11, marginBottom: 2 }}>{d.label}</div>
