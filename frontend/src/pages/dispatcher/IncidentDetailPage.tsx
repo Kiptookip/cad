@@ -813,10 +813,11 @@ export default function IncidentDetailPage() {
                 lng: v.lastLng!,
                 speed: 0,
                 heading: 0,
-                ignition: v.status !== 'MAINTENANCE',
+                ignition: false,
                 timestamp: v.lastLocationAt ?? new Date().toISOString(),
                 dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
                 isActive: v.isActive,
+                hasDriver: !!v.currentDriver,
               }))}
             onVehicleClick={v => {
               setSelectedVehicleId(v.vehicleId);

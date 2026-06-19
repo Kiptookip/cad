@@ -283,8 +283,8 @@ export default function VehicleDispatchPanel({ clickedVehicle, onClose }: Props)
       <div className="p-5 border-t border-surface-border bg-slate-50 flex-shrink-0">
         {!canDispatch && selectedIncidentId && !dispatch.isPending && (
           <p className="text-xs text-center text-status-warning font-medium mb-3">
-            {!hasFullCrew
-              ? 'Crew must check in via mobile before dispatching'
+            {!hasDriver
+              ? 'Driver must check in via mobile before dispatching'
               : 'Vehicle is currently on an active task'}
           </p>
         )}
