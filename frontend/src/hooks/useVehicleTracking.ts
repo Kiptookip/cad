@@ -16,6 +16,7 @@ export interface LiveVehicle {
   timestamp: string;
   dbStatus: 'READY' | 'BUSY' | 'MAINTENANCE';
   isActive: boolean;
+  hasDriver: boolean; // true when a driver is checked-in (from DB)
 }
 
 export type VehicleTrackingStatus = 'ready' | 'no-driver' | 'engaged' | 'unavailable';
@@ -23,8 +24,8 @@ export type VehicleTrackingStatus = 'ready' | 'no-driver' | 'engaged' | 'unavail
 export function getVehicleTrackingStatus(v: LiveVehicle): VehicleTrackingStatus {
   if (!v.isActive || v.dbStatus === 'MAINTENANCE') return 'unavailable';
   if (v.dbStatus === 'BUSY') return 'engaged';
-  if (v.ignition) return 'ready';   // READY + ignition on = driver present
-  return 'no-driver';               // READY + ignition off = no driver
+  if (v.hasDriver) return 'ready';
+  return 'no-driver';
 }
 
 export function useVehicleTracking() {
@@ -55,6 +56,8 @@ export function useVehicleTracking() {
         const existing = next.get(v.id);
         const dbTs = new Date(v.lastLocationAt ?? 0).getTime();
         const existingTs = existing ? new Date(existing.timestamp).getTime() : 0;
+        // Always update hasDriver from DB (driver check-ins aren't pushed via socket)
+        const hasDriver = !!v.currentDriver;
         if (!existing || dbTs > existingTs) {
           next.set(v.id, {
             vehicleId: v.id,
@@ -68,7 +71,10 @@ export function useVehicleTracking() {
             timestamp: v.lastLocationAt ?? new Date().toISOString(),
             dbStatus: (v.status as LiveVehicle['dbStatus']) ?? 'READY',
             isActive: v.isActive,
+            hasDriver,
           });
+        } else if (existing.hasDriver !== hasDriver) {
+          next.set(v.id, { ...existing, hasDriver });
         }
       }
       return next;
@@ -97,6 +103,7 @@ export function useVehicleTracking() {
             timestamp: u.timestamp ?? new Date().toISOString(),
             dbStatus: u.dbStatus ?? existing?.dbStatus ?? 'READY',
             isActive: u.isActive ?? existing?.isActive ?? true,
+            hasDriver: existing?.hasDriver ?? false, // GPS push doesn't carry crew info
           });
         }
         return next;
