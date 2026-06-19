@@ -95,7 +95,7 @@ export default function IncidentDetailPage() {
   });
 
   // Fetch nearest vehicles — use lat/lng from incident if available, else list all
-  const { data: nearestVehicles } = useQuery({
+  const { data: nearestVehiclesRaw } = useQuery({
     queryKey: ['vehicles', 'nearest', incident?.id],
     queryFn: async () => {
       if (incident?.lat && incident?.lng) {
@@ -107,6 +107,11 @@ export default function IncidentDetailPage() {
     },
     enabled: !!incident,
   });
+
+  // Only show vehicles that can actually be dispatched right now
+  const nearestVehicles = (nearestVehiclesRaw ?? []).filter(
+    v => v.status === 'READY' && v.isActive && !!v.currentDriver
+  );
 
   // Real-time: keep incident fresh when status changes or crew is assigned
   useEffect(() => {
@@ -664,17 +669,15 @@ export default function IncidentDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(nearestVehicles || []).map(v => (
-                    <tr key={v.id} className="border-b border-surface-border hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedVehicleId(v.id)}>
+                  {nearestVehicles.map(v => (
+                    <tr key={v.id} className={`border-b border-surface-border hover:bg-slate-50 cursor-pointer transition-colors ${selectedVehicleId === v.id ? 'bg-brand-green/5' : ''}`} onClick={() => setSelectedVehicleId(v.id)}>
                       <td className="px-6 py-3">
                         <p className="font-semibold text-brand-teal text-sm">{v.registrationNumber}</p>
-                        <p className="text-xs text-slate-text mt-0.5">{v.id?.substring(0,8) ?? '—'}</p>
+                        <p className="text-xs text-slate-text mt-0.5">{v.currentDriver?.name ?? '—'}</p>
                       </td>
                       <td className="px-6 py-3">
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                          !v.isActive ? 'bg-slate-100 text-slate-400' : 'bg-brand-green/10 text-brand-green'
-                        }`}>
-                          {v.isActive ? 'Available' : 'Inactive'}
+                        <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-brand-green/10 text-brand-green">
+                          Ready
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right">
@@ -682,9 +685,9 @@ export default function IncidentDetailPage() {
                       </td>
                     </tr>
                   ))}
-                  {(!nearestVehicles || nearestVehicles.length === 0) && (
+                  {nearestVehicles.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-6 py-6 text-center text-sm text-slate-text">No available vehicles nearby.</td>
+                      <td colSpan={3} className="px-6 py-6 text-center text-sm text-slate-text">No vehicles with a driver available nearby.</td>
                     </tr>
                   )}
                 </tbody>
@@ -775,10 +778,10 @@ export default function IncidentDetailPage() {
               <span className="w-2 h-2 bg-status-danger rounded-full animate-pulse"></span>
               Scene
             </div>
-            {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length > 0 && (
+            {nearestVehicles.filter(v => v.lastLat && v.lastLng).length > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-brand-green font-medium">
                 <span className="w-2 h-2 bg-brand-green rounded-full"></span>
-                {(nearestVehicles ?? []).filter(v => v.lastLat && v.lastLng).length} nearby units
+                {nearestVehicles.filter(v => v.lastLat && v.lastLng).length} ready units nearby
               </div>
             )}
           </div>
@@ -788,7 +791,7 @@ export default function IncidentDetailPage() {
             center={[incident.lat || -1.2921, incident.lng || 36.8219]}
             zoom={14}
             markers={[{ id: incident.id, lat: incident.lat || -1.2921, lng: incident.lng || 36.8219, title: incident.caseNumber, type: 'incident' }]}
-            vehicleMarkers={(nearestVehicles ?? [])
+            vehicleMarkers={nearestVehicles
               .filter(v => v.lastLat && v.lastLng)
               .map((v): LiveVehicle => ({
                 vehicleId: v.id,
