@@ -120,7 +120,6 @@ export class TaskService {
     if (!incident) throw new NotFoundError('Incident not found');
     if (!vehicle) throw new NotFoundError('Vehicle not found');
     if (!vehicle.currentDriverId) throw new BadRequestError('No driver is checked in to this vehicle');
-    if (!vehicle.currentEmtId) throw new BadRequestError('No EMT is checked in to this vehicle');
 
     const [task] = await this.app.prisma.$transaction([
       this.app.prisma.task.create({
@@ -129,7 +128,7 @@ export class TaskService {
           incidentId: data.incidentId,
           vehicleId: data.vehicleId,
           driverId: vehicle.currentDriverId,
-          emtId: vehicle.currentEmtId,
+          emtId: vehicle.currentEmtId ?? undefined,
           nurseId: vehicle.currentNurseId ?? undefined,
         },
       }),
@@ -147,9 +146,8 @@ export class TaskService {
     ]);
 
     // Notify crew via socket
-    let room = this.app.io
-      .to(`user:${vehicle.currentDriverId}`)
-      .to(`user:${vehicle.currentEmtId}`);
+    let room = this.app.io.to(`user:${vehicle.currentDriverId}`);
+    if (vehicle.currentEmtId) room = room.to(`user:${vehicle.currentEmtId}`);
     if (vehicle.currentNurseId) room = room.to(`user:${vehicle.currentNurseId}`);
     room.emit('task:assigned', task);
 

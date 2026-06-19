@@ -228,8 +228,8 @@ model Task {
   driverId String @map("driver_id")
   driver   User   @relation("TaskDriver", fields: [driverId], references: [id])
 
-  emtId String @map("emt_id")
-  emt   User   @relation("TaskEmt", fields: [emtId], references: [id])
+  emtId String? @map("emt_id")
+  emt   User?   @relation("TaskEmt", fields: [emtId], references: [id])
 
   nurseId String? @map("nurse_id")
   nurse   User?   @relation("TaskNurse", fields: [nurseId], references: [id])
