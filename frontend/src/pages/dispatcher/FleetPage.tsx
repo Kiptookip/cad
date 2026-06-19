@@ -206,7 +206,7 @@ export default function FleetPage() {
                       </td>
                       <td>
                         <span className={`pill ${S_PILL[s] ?? 'pill-gray'}`}>
-                          <span className="dot" style={{ animation: s === 'moving' ? 'pulse-ring 2s infinite' : undefined }} />
+                          <span className="dot" style={{ animation: s === 'ready' ? 'pulse-ring 2s infinite' : undefined }} />
                           {S_LABEL[s] ?? s}
                         </span>
                       </td>
@@ -334,7 +334,7 @@ export default function FleetPage() {
               const s = selectedLive ? getVehicleTrackingStatus(selectedLive) : selected.status === 'MAINTENANCE' ? 'maintenance' : selected.isActive ? 'stopped' : 'offline';
               return (
                 <span className={`pill ${S_PILL[s] ?? 'pill-gray'}`} style={{ alignSelf: 'flex-start', fontSize: 13, padding: '6px 12px' }}>
-                  <span className="dot" style={{ animation: s === 'moving' ? 'pulse-ring 2s infinite' : undefined }} />
+                  <span className="dot" style={{ animation: s === 'ready' ? 'pulse-ring 2s infinite' : undefined }} />
                   {S_LABEL[s] ?? s}
                   {selectedLive?.speed ? ` · ${selectedLive.speed} km/h` : ''}
                 </span>
